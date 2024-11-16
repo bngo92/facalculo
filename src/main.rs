@@ -43,7 +43,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let recipe_rates: HashMap<&str, RecipeRate> =
         data.recipes.iter().map(|r| (r.key, r.to_rate())).collect();
     fn build_node(
-        depth: usize,
         required: Decimal,
         key: &str,
         recipe: Option<&RecipeRate>,
@@ -52,7 +51,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(recipe) = recipe {
             let ratio = required / recipe.results[0].rate;
             Node {
-                depth,
                 required,
                 name: key.to_owned(),
                 children: recipe
@@ -60,7 +58,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .iter()
                     .map(|i| {
                         build_node(
-                            depth + 1,
                             ratio * i.rate,
                             &i.name,
                             recipe_rates.get(&i.name.as_str()),
@@ -71,7 +68,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         } else {
             Node {
-                depth,
                 required,
                 name: key.to_owned(),
                 children: Vec::new(),
@@ -79,7 +75,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     let graph = build_node(
-        0,
         args.rate.unwrap_or(Decimal::ONE / recipe.energy_required),
         recipe.key,
         recipe_rates.get(recipe.key),
@@ -87,15 +82,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     fn dfs<F>(node: &Node, f: &mut F)
     where
-        F: FnMut(&Node),
+        F: FnMut(usize, &Node),
     {
-        f(node);
-        for child in &node.children {
-            dfs(child, f);
+        fn dfs_inner<F>(depth: usize, node: &Node, f: &mut F)
+        where
+            F: FnMut(usize, &Node),
+        {
+            f(depth, node);
+            for child in &node.children {
+                dfs_inner(depth + 1, child, f);
+            }
         }
+        dfs_inner(0, node, f);
     }
     let mut total = HashMap::new();
-    dfs(&graph, &mut |node| {
+    dfs(&graph, &mut |depth, node| {
         if let Some(recipe) = recipe_rates.get(node.name.as_str()) {
             let ratio = node.required / recipe.results[0].rate;
             let mut ingredients = Vec::new();
@@ -105,20 +106,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             println!(
                 "{}{} {}: {} / s",
-                " ".repeat(2 * node.depth),
+                " ".repeat(2 * depth),
                 round_string(&node.required),
                 recipe.key,
                 ingredients.join(", ")
             );
             println!(
                 "{}{recipe} ({})",
-                " ".repeat(2 * node.depth + 2),
+                " ".repeat(2 * depth + 2),
                 round_string(&ratio)
             );
         } else {
             println!(
                 "{}{} {}/s",
-                " ".repeat(2 * node.depth),
+                " ".repeat(2 * depth),
                 round_string(&node.required),
                 node.name
             );
@@ -229,7 +230,6 @@ fn round_string(d: &Decimal) -> String {
 }
 
 struct Node {
-    depth: usize,
     required: Decimal,
     name: String,
     children: Vec<Node>,
