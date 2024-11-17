@@ -1,8 +1,14 @@
 use clap::Parser;
+use graphviz_rust::{
+    cmd::{CommandArg, Format},
+    exec, parse,
+    printer::PrinterContext,
+};
+use petgraph::{dot::Dot, graph::NodeIndex, visit::Dfs, Graph};
 use rust_decimal::Decimal;
 use serde_derive::Deserialize;
 use serde_json::Value;
-use std::{collections::HashMap, fmt::Display};
+use std::{collections::HashMap, fmt::Display, process::Command};
 
 #[derive(Parser, Debug)]
 #[command()]
@@ -45,86 +51,50 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     fn build_node(
         required: Decimal,
         key: &str,
-        recipe: Option<&RecipeRate>,
         recipe_rates: &HashMap<&str, RecipeRate>,
-    ) -> Node {
-        if let Some(recipe) = recipe {
+        graph: &mut Graph<Node, String>,
+    ) -> NodeIndex {
+        let node = graph.add_node(Node {
+            required,
+            name: key.to_owned(),
+        });
+        if let Some(recipe) = recipe_rates.get(key) {
             let ratio = required / recipe.results[0].rate;
-            Node {
-                required,
-                name: key.to_owned(),
-                children: recipe
-                    .ingredients
-                    .iter()
-                    .map(|i| {
-                        build_node(
-                            ratio * i.rate,
-                            &i.name,
-                            recipe_rates.get(&i.name.as_str()),
-                            recipe_rates,
-                        )
-                    })
-                    .collect(),
-            }
-        } else {
-            Node {
-                required,
-                name: key.to_owned(),
-                children: Vec::new(),
+            for i in &recipe.ingredients {
+                let n = build_node(ratio * i.rate, &i.name, recipe_rates, graph);
+                graph.add_edge(node, n, String::new());
             }
         }
+        node
     }
-    let graph = build_node(
+    let mut graph = Graph::new();
+    let root = build_node(
         args.rate.unwrap_or(Decimal::ONE / recipe.energy_required),
         recipe.key,
-        recipe_rates.get(recipe.key),
         &recipe_rates,
+        &mut graph,
     );
-    fn dfs<F>(node: &Node, f: &mut F)
-    where
-        F: FnMut(usize, &Node),
-    {
-        fn dfs_inner<F>(depth: usize, node: &Node, f: &mut F)
-        where
-            F: FnMut(usize, &Node),
-        {
-            f(depth, node);
-            for child in &node.children {
-                dfs_inner(depth + 1, child, f);
-            }
-        }
-        dfs_inner(0, node, f);
-    }
+    let dot = Dot::new(&graph);
+    let g = parse(&dot.to_string())?;
+    exec(
+        g,
+        &mut PrinterContext::default(),
+        vec![
+            Format::Svg.into(),
+            CommandArg::Output("out.svg".to_string()),
+        ],
+    )?;
+    Command::new("open").arg("out.svg").spawn()?;
+    let mut dfs = Dfs::new(&graph, root);
     let mut total = HashMap::new();
-    dfs(&graph, &mut |depth, node| {
-        if let Some(recipe) = recipe_rates.get(node.name.as_str()) {
-            let ratio = node.required / recipe.results[0].rate;
-            let mut ingredients = Vec::new();
+    while let Some(nx) = dfs.next(&graph) {
+        if let Some(recipe) = recipe_rates.get(graph[nx].name.as_str()) {
+            let ratio = graph[nx].required / recipe.results[0].rate;
             for i in &recipe.ingredients {
-                ingredients.push(format!("{} {}", round_string(&(ratio * i.rate)), i.name));
                 *total.entry(i.name.as_str()).or_insert(Decimal::ZERO) += ratio * i.rate;
             }
-            println!(
-                "{}{} {}: {} / s",
-                " ".repeat(2 * depth),
-                round_string(&node.required),
-                recipe.key,
-                ingredients.join(", ")
-            );
-            println!(
-                "{}{recipe} ({})",
-                " ".repeat(2 * depth + 2),
-                round_string(&ratio)
-            );
-        } else {
-            println!(
-                "{}{} {}/s",
-                " ".repeat(2 * depth),
-                round_string(&node.required),
-                node.name
-            );
         }
-    });
+    }
     for (key, required) in total {
         println!(
             "{} {key}/s{}",
@@ -232,5 +202,10 @@ fn round_string(d: &Decimal) -> String {
 struct Node {
     required: Decimal,
     name: String,
-    children: Vec<Node>,
+}
+
+impl Display for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", round_string(&self.required), self.name)
+    }
 }
