@@ -1,5 +1,5 @@
 use clap::Parser;
-use facalculo::{compute, IngredientRate, RecipeRate};
+use facalculo::{compute, Graph, IngredientRate, RecipeRate};
 use rust_decimal::Decimal;
 use serde_derive::Deserialize;
 use serde_json::Value;
@@ -45,9 +45,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         return Ok(());
     };
-    let recipe_rates: HashMap<&str, RecipeRate> =
-        data.recipes.iter().map(|r| (r.key, r.to_rate())).collect();
-    let (graph, root) = facalculo::build_graph(
+    let recipe_rates: HashMap<_, _> = data.recipes.iter().map(|r| (r.key, r.to_rate())).collect();
+    let graph = Graph::new(
         args.rate.unwrap_or(Decimal::ONE / recipe.energy_required),
         args.name.as_str(),
         &recipe_rates,
@@ -56,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         compute::render(&graph)?;
     }
     if args.total {
-        for (key, required) in compute::total(&graph, root, &recipe_rates) {
+        for (key, required) in compute::total(&graph) {
             println!(
                 "{} {key}/s{}",
                 facalculo::round_string(&required),

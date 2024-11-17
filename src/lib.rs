@@ -4,32 +4,44 @@ use std::{collections::HashMap, fmt::Display};
 
 pub mod compute;
 
-type Graph = petgraph::Graph<Node, String>;
+type GraphType = petgraph::Graph<Node, String>;
 
-pub fn build_graph(
-    required: Decimal,
-    key: &str,
-    recipe_rates: &HashMap<&str, RecipeRate>,
-) -> (Graph, NodeIndex) {
-    let mut graph = Graph::new();
-    let root = build_node(required, key, recipe_rates, &mut graph);
-    (graph, root)
+pub struct Graph<'a> {
+    graph: GraphType,
+    root: NodeIndex,
+    recipes: &'a HashMap<&'a str, RecipeRate<'a>>,
+}
+
+impl<'a> Graph<'a> {
+    pub fn new(
+        required: Decimal,
+        key: &str,
+        recipes: &'a HashMap<&'a str, RecipeRate<'a>>,
+    ) -> Graph<'a> {
+        let mut graph = GraphType::new();
+        let root = build_node(required, key, recipes, &mut graph);
+        Graph {
+            graph,
+            root,
+            recipes,
+        }
+    }
 }
 
 fn build_node(
     required: Decimal,
     key: &str,
-    recipe_rates: &HashMap<&str, RecipeRate>,
-    graph: &mut Graph,
+    recipes: &HashMap<&str, RecipeRate>,
+    graph: &mut GraphType,
 ) -> NodeIndex {
     let node = graph.add_node(Node {
         required,
         name: key.to_owned(),
     });
-    if let Some(recipe) = recipe_rates.get(key) {
+    if let Some(recipe) = recipes.get(key) {
         let ratio = required / recipe.results[0].rate;
         for i in &recipe.ingredients {
-            let n = build_node(ratio * i.rate, &i.name, recipe_rates, graph);
+            let n = build_node(ratio * i.rate, &i.name, recipes, graph);
             graph.add_edge(node, n, String::new());
         }
     }
