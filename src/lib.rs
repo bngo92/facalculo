@@ -26,6 +26,48 @@ impl<'a> Graph<'a> {
             recipes,
         }
     }
+
+    pub fn group_nodes(&self) -> Graph<'a> {
+        let mut graph = GraphType::new();
+        // The root node doesn't have an incoming edge so it needs to be copied separately
+        let mut nodes = HashMap::from([(
+            &self.graph[self.root].name,
+            graph.add_node(self.graph[self.root].clone()),
+        )]);
+        // Aggregate nodes by incoming edge
+        for i in self.graph.edge_indices() {
+            let (ix, iy) = self.graph.edge_endpoints(i).unwrap();
+            if !nodes.contains_key(&self.graph[ix].name) {
+                nodes.insert(
+                    &self.graph[ix].name,
+                    graph.add_node(Node {
+                        required: Decimal::ZERO,
+                        name: self.graph[ix].name.clone(),
+                    }),
+                );
+            }
+            let x = nodes[&self.graph[ix].name];
+            if !nodes.contains_key(&self.graph[iy].name) {
+                nodes.insert(
+                    &self.graph[iy].name,
+                    graph.add_node(Node {
+                        required: Decimal::ZERO,
+                        name: self.graph[iy].name.clone(),
+                    }),
+                );
+            }
+            let y = nodes[&self.graph[iy].name];
+            graph[y].required += self.graph[iy].required;
+            if !graph.contains_edge(x, y) {
+                graph.add_edge(x, y, String::new());
+            }
+        }
+        Graph {
+            graph,
+            root: self.root,
+            recipes: self.recipes,
+        }
+    }
 }
 
 fn build_node(
@@ -52,6 +94,7 @@ pub fn round_string(d: &Decimal) -> String {
     d.round_dp(3).to_string()
 }
 
+#[derive(Clone)]
 pub struct Node {
     pub required: Decimal,
     pub name: String,

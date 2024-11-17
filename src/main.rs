@@ -12,6 +12,8 @@ struct Args {
     #[arg(short, long)]
     rate: Option<Decimal>,
     #[arg(long)]
+    group: bool,
+    #[arg(long)]
     render: bool,
     #[arg(long)]
     total: bool,
@@ -46,11 +48,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     };
     let recipe_rates: HashMap<_, _> = data.recipes.iter().map(|r| (r.key, r.to_rate())).collect();
-    let graph = Graph::new(
+    let mut graph = Graph::new(
         args.rate.unwrap_or(Decimal::ONE / recipe.energy_required),
         args.name.as_str(),
         &recipe_rates,
     );
+    if args.group {
+        graph = graph.group_nodes();
+    }
     if args.render {
         compute::render(&graph)?;
     }
