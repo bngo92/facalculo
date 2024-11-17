@@ -1,14 +1,9 @@
 use clap::Parser;
-use graphviz_rust::{
-    cmd::{CommandArg, Format},
-    exec, parse,
-    printer::PrinterContext,
-};
-use petgraph::{dot::Dot, graph::NodeIndex, visit::Dfs, Graph};
+use facalculo::{compute, IngredientRate, RecipeRate};
 use rust_decimal::Decimal;
 use serde_derive::Deserialize;
 use serde_json::Value;
-use std::{collections::HashMap, fmt::Display, process::Command};
+use std::collections::HashMap;
 
 #[derive(Parser, Debug)]
 #[command()]
@@ -16,6 +11,10 @@ struct Args {
     name: String,
     #[arg(short, long)]
     rate: Option<Decimal>,
+    #[arg(long)]
+    render: bool,
+    #[arg(long)]
+    total: bool,
     #[arg(long)]
     debug: bool,
 }
@@ -48,63 +47,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let recipe_rates: HashMap<&str, RecipeRate> =
         data.recipes.iter().map(|r| (r.key, r.to_rate())).collect();
-    fn build_node(
-        required: Decimal,
-        key: &str,
-        recipe_rates: &HashMap<&str, RecipeRate>,
-        graph: &mut Graph<Node, String>,
-    ) -> NodeIndex {
-        let node = graph.add_node(Node {
-            required,
-            name: key.to_owned(),
-        });
-        if let Some(recipe) = recipe_rates.get(key) {
-            let ratio = required / recipe.results[0].rate;
-            for i in &recipe.ingredients {
-                let n = build_node(ratio * i.rate, &i.name, recipe_rates, graph);
-                graph.add_edge(node, n, String::new());
-            }
-        }
-        node
-    }
-    let mut graph = Graph::new();
-    let root = build_node(
+    let (graph, root) = facalculo::build_graph(
         args.rate.unwrap_or(Decimal::ONE / recipe.energy_required),
-        recipe.key,
+        args.name.as_str(),
         &recipe_rates,
-        &mut graph,
     );
-    let dot = Dot::new(&graph);
-    let g = parse(&dot.to_string())?;
-    exec(
-        g,
-        &mut PrinterContext::default(),
-        vec![
-            Format::Svg.into(),
-            CommandArg::Output("out.svg".to_string()),
-        ],
-    )?;
-    Command::new("open").arg("out.svg").spawn()?;
-    let mut dfs = Dfs::new(&graph, root);
-    let mut total = HashMap::new();
-    while let Some(nx) = dfs.next(&graph) {
-        if let Some(recipe) = recipe_rates.get(graph[nx].name.as_str()) {
-            let ratio = graph[nx].required / recipe.results[0].rate;
-            for i in &recipe.ingredients {
-                *total.entry(i.name.as_str()).or_insert(Decimal::ZERO) += ratio * i.rate;
-            }
-        }
+    if args.render {
+        compute::render(&graph)?;
     }
-    for (key, required) in total {
-        println!(
-            "{} {key}/s{}",
-            round_string(&required),
-            if let Some(recipe) = recipe_rates.get(key) {
-                format!(" ({})", round_string(&(required / recipe.results[0].rate)))
-            } else {
-                String::new()
-            }
-        );
+    if args.total {
+        for (key, required) in compute::total(&graph, root, &recipe_rates) {
+            println!(
+                "{} {key}/s{}",
+                facalculo::round_string(&required),
+                if let Some(recipe) = recipe_rates.get(key) {
+                    format!(
+                        " ({})",
+                        facalculo::round_string(&(required / recipe.results[0].rate))
+                    )
+                } else {
+                    String::new()
+                }
+            );
+        }
     }
     Ok(())
 }
@@ -150,12 +115,6 @@ impl<'a> Recipe<'a> {
     }
 }
 
-impl Display for IngredientRate {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", round_string(&self.rate), self.name)
-    }
-}
-
 #[derive(Clone, Debug, Deserialize)]
 struct Ingredient {
     amount: Decimal,
@@ -166,46 +125,4 @@ struct Ingredient {
 struct RecipeResult {
     amount: Decimal,
     name: String,
-}
-
-struct RecipeRate<'a> {
-    key: &'a str,
-    ingredients: Vec<IngredientRate>,
-    results: Vec<IngredientRate>,
-}
-
-impl Display for RecipeRate<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "recipe - {} {}: {} / s",
-            round_string(&self.results[0].rate),
-            self.key,
-            self.ingredients
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
-    }
-}
-
-struct IngredientRate {
-    rate: Decimal,
-    name: String,
-}
-
-fn round_string(d: &Decimal) -> String {
-    d.round_dp(3).to_string()
-}
-
-struct Node {
-    required: Decimal,
-    name: String,
-}
-
-impl Display for Node {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", round_string(&self.required), self.name)
-    }
 }
