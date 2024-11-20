@@ -18,6 +18,8 @@ struct Args {
     #[arg(long)]
     total: bool,
     #[arg(long)]
+    out: bool,
+    #[arg(long)]
     debug: bool,
 }
 
@@ -74,6 +76,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             );
         }
+    }
+    if args.out {
+        println!("{}", serde_json::to_string_pretty(&graph.to_raw())?);
     }
     Ok(())
 }

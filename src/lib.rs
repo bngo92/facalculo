@@ -73,6 +73,15 @@ impl<'a> Graph<'a> {
     }
 }
 
+impl Graph<'_> {
+    pub fn to_raw(self) -> RawGraph {
+        RawGraph {
+            graph: self.graph,
+            root: self.root,
+        }
+    }
+}
+
 fn build_node(
     required: Decimal,
     key: &str,
@@ -167,4 +176,10 @@ impl Display for IngredientRate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} {}", round_string(&self.rate), self.name)
     }
+}
+
+#[derive(Serialize)]
+pub struct RawGraph {
+    graph: GraphType,
+    root: NodeIndex,
 }
