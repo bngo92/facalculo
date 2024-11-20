@@ -33,7 +33,7 @@ pub fn total<'a>(graph: &'a Graph) -> HashMap<&'a str, Decimal> {
     let mut total = HashMap::new();
     while let Some(nx) = dfs.next(&graph) {
         if let Some(recipe) = recipes.get(graph[nx].name.as_str()) {
-            let ratio = graph[nx].required / recipe.results[0].rate;
+            let ratio = graph[nx].required.unwrap() / recipe.results[0].rate;
             for i in &recipe.ingredients {
                 *total.entry(i.name.as_str()).or_insert(Decimal::ZERO) += ratio * i.rate;
             }

@@ -1,10 +1,11 @@
 use petgraph::graph::NodeIndex;
 use rust_decimal::Decimal;
+use serde_derive::Serialize;
 use std::{collections::HashMap, fmt::Display};
 
 pub mod compute;
 
-type GraphType = petgraph::Graph<Node, String>;
+type GraphType = petgraph::Graph<Node, Edge>;
 
 pub struct Graph<'a> {
     graph: GraphType,
@@ -41,7 +42,7 @@ impl<'a> Graph<'a> {
                 nodes.insert(
                     &self.graph[ix].name,
                     graph.add_node(Node {
-                        required: Decimal::ZERO,
+                        required: Some(Decimal::ZERO),
                         name: self.graph[ix].name.clone(),
                     }),
                 );
@@ -51,15 +52,17 @@ impl<'a> Graph<'a> {
                 nodes.insert(
                     &self.graph[iy].name,
                     graph.add_node(Node {
-                        required: Decimal::ZERO,
+                        required: Some(Decimal::ZERO),
                         name: self.graph[iy].name.clone(),
                     }),
                 );
             }
             let y = nodes[&self.graph[iy].name];
-            graph[y].required += self.graph[iy].required;
+            if let Some(required) = self.graph[iy].required {
+                *graph[y].required.as_mut().unwrap() += required;
+            }
             if !graph.contains_edge(x, y) {
-                graph.add_edge(x, y, String::new());
+                graph.add_edge(x, y, self.graph[i].clone());
             }
         }
         Graph {
@@ -76,17 +79,29 @@ fn build_node(
     recipes: &HashMap<&str, RecipeRate>,
     graph: &mut GraphType,
 ) -> NodeIndex {
-    let node = graph.add_node(Node {
-        required,
-        name: key.to_owned(),
-    });
-    if let Some(recipe) = recipes.get(key) {
+    let node = if let Some(recipe) = recipes.get(key) {
         let ratio = required / recipe.results[0].rate;
+        let node = graph.add_node(Node {
+            required: Some(ratio),
+            name: key.to_owned(),
+        });
         for i in &recipe.ingredients {
             let n = build_node(ratio * i.rate, &i.name, recipes, graph);
-            graph.add_edge(node, n, String::new());
+            graph.add_edge(
+                node,
+                n,
+                Edge {
+                    required: ratio * i.rate,
+                },
+            );
         }
-    }
+        node
+    } else {
+        graph.add_node(Node {
+            required: None,
+            name: key.to_owned(),
+        })
+    };
     node
 }
 
@@ -94,15 +109,30 @@ pub fn round_string(d: &Decimal) -> String {
     d.round_dp(3).to_string()
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct Node {
-    pub required: Decimal,
+    pub required: Option<Decimal>,
     pub name: String,
 }
 
 impl Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", round_string(&self.required), self.name)
+        if let Some(required) = self.required {
+            write!(f, "{} {}", round_string(&required), self.name)
+        } else {
+            write!(f, "{}", self.name)
+        }
+    }
+}
+
+#[derive(Clone, Serialize)]
+pub struct Edge {
+    required: Decimal,
+}
+
+impl Display for Edge {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", round_string(&self.required))
     }
 }
 
