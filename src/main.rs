@@ -10,6 +10,8 @@ use std::collections::HashMap;
 struct Args {
     #[arg(short, long, num_args = 1..=2)]
     items: Vec<Vec<String>>,
+    #[arg(short, long)]
+    rate: Option<Decimal>,
     #[arg(long)]
     group: bool,
     #[arg(long)]
@@ -48,6 +50,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let recipe = get_recipe(&recipes, name)?;
         let required = if let Some(rate) = iter.next() {
             rate.parse()?
+        } else if let Some(rate) = args.rate {
+            rate
         } else {
             let rate = recipe.results[0].amount / recipe.energy_required;
             eprintln!(
