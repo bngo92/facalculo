@@ -14,18 +14,22 @@ pub struct Graph<'a> {
 }
 
 impl<'a> Graph<'a> {
-    pub fn new(
-        required: Decimal,
-        key: &str,
-        recipes: &'a HashMap<&'a str, RecipeRate<'a>>,
-    ) -> Graph<'a> {
+    pub fn new(recipes: &'a HashMap<&'a str, RecipeRate<'a>>) -> Graph<'a> {
         let mut graph = GraphType::new();
-        let root = build_node(required, key, recipes, &mut graph);
+        let root = graph.add_node(Node {
+            required: None,
+            name: String::new(),
+        });
         Graph {
             graph,
             root,
             recipes,
         }
+    }
+
+    pub fn add(&mut self, required: Decimal, key: &str) {
+        let node = build_node(required, key, self.recipes, &mut self.graph);
+        self.graph.add_edge(self.root, node, Edge { required });
     }
 
     pub fn group_nodes(&self) -> Graph<'a> {

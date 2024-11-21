@@ -41,18 +41,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let data: Data = serde_json::from_slice(b)?;
     let recipes: HashMap<&str, &Recipe> = data.recipes.iter().map(|r| (r.key, r)).collect();
     let recipe_rates: HashMap<_, _> = data.recipes.iter().map(|r| (r.key, r.to_rate())).collect();
-    let item = &args.items[0];
-    let mut iter = item.iter();
-    let name = iter.next().unwrap();
-    let recipe = get_recipe(&recipes, name)?;
-    let required = if let Some(rate) = iter.next() {
-        rate.parse()?
-    } else {
-        let rate = Decimal::ONE / recipe.energy_required;
-        eprintln!("Using {} for {name} (1/s)", facalculo::round_string(&rate));
-        rate
-    };
-    let mut graph = Graph::new(required, name, &recipe_rates);
+    let mut graph = Graph::new(&recipe_rates);
+    for item in args.items {
+        let mut iter = item.iter();
+        let name = iter.next().unwrap();
+        let recipe = get_recipe(&recipes, name)?;
+        let required = if let Some(rate) = iter.next() {
+            rate.parse()?
+        } else {
+            let rate = Decimal::ONE / recipe.energy_required;
+            eprintln!("Using {} for {name} (1/s)", facalculo::round_string(&rate));
+            rate
+        };
+        graph.add(required, name);
+    }
     if args.group {
         graph = graph.group_nodes();
     }
