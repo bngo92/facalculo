@@ -8,9 +8,8 @@ use std::collections::HashMap;
 #[derive(Parser, Debug)]
 #[command()]
 struct Args {
-    name: String,
-    #[arg(short, long)]
-    rate: Option<Decimal>,
+    #[arg(short, long, num_args = 1..=2)]
+    items: Vec<Vec<String>>,
     #[arg(long)]
     group: bool,
     #[arg(long)]
@@ -34,27 +33,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .as_array()
                 .expect("recipes should be an array")
                 .iter()
-                .find(|r| r["key"] == args.name)
-                .ok_or(format!("{} was not found", args.name))?
+                .find(|r| r["key"] == args.items[0][0])
+                .ok_or(format!("{} was not found", args.items[0][0]))?
         );
         return Ok(());
     }
     let data: Data = serde_json::from_slice(b)?;
     let recipes: HashMap<&str, &Recipe> = data.recipes.iter().map(|r| (r.key, r)).collect();
-    let Some(recipe) = recipes.get(args.name.as_str()) else {
-        for k in recipes.keys() {
-            if k.contains(&args.name) {
-                println!("{}", k);
-            }
-        }
-        return Ok(());
-    };
     let recipe_rates: HashMap<_, _> = data.recipes.iter().map(|r| (r.key, r.to_rate())).collect();
-    let mut graph = Graph::new(
-        args.rate.unwrap_or(Decimal::ONE / recipe.energy_required),
-        args.name.as_str(),
-        &recipe_rates,
-    );
+    let item = &args.items[0];
+    let mut iter = item.iter();
+    let name = iter.next().unwrap();
+    let recipe = get_recipe(&recipes, name)?;
+    let required = if let Some(rate) = iter.next() {
+        rate.parse()?
+    } else {
+        let rate = Decimal::ONE / recipe.energy_required;
+        eprintln!("Using {} for {name} (1/s)", facalculo::round_string(&rate));
+        rate
+    };
+    let mut graph = Graph::new(required, name, &recipe_rates);
     if args.group {
         graph = graph.group_nodes();
     }
@@ -81,6 +79,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("{}", serde_json::to_string_pretty(&graph.to_raw())?);
     }
     Ok(())
+}
+
+fn get_recipe<'a>(
+    recipes: &HashMap<&str, &'a Recipe<'a>>,
+    name: &str,
+) -> Result<&'a Recipe<'a>, String> {
+    if let Some(recipe) = recipes.get(name) {
+        Ok(recipe)
+    } else {
+        let mut found = false;
+        for k in recipes.keys() {
+            if k.contains(name) {
+                if !found {
+                    found = true;
+                    eprintln!("{name} was not found. Similar items:");
+                }
+                eprintln!("{}", k);
+            }
+        }
+        Err(format!("{name} was not found"))
+    }
 }
 
 #[derive(Debug, Deserialize)]
