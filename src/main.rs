@@ -49,8 +49,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let required = if let Some(rate) = iter.next() {
             rate.parse()?
         } else {
-            let rate = Decimal::ONE / recipe.energy_required;
-            eprintln!("Using {} for {name} (1/s)", facalculo::round_string(&rate));
+            let rate = recipe.results[0].amount / recipe.energy_required;
+            eprintln!(
+                "Using {} for {name} (1 assembler)",
+                facalculo::round_string(&rate)
+            );
             rate
         };
         graph.add(required, name);
