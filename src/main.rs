@@ -3,7 +3,7 @@ use facalculo::{compute, Graph, IngredientRate, RecipeRate};
 use rust_decimal::Decimal;
 use serde_derive::Deserialize;
 use serde_json::Value;
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 
 #[derive(Parser, Debug)]
 #[command()]
@@ -20,6 +20,8 @@ struct Args {
     total: bool,
     #[arg(long)]
     out: bool,
+    #[arg(long, value_parser = 1..=3, default_value_t = 1)]
+    asm: i64,
     #[arg(long)]
     debug: bool,
 }
@@ -41,19 +43,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
     let data: Data = serde_json::from_slice(b)?;
-    let recipes: HashMap<&str, &Recipe> = data.recipes.iter().map(|r| (r.key, r)).collect();
-    let recipe_rates: HashMap<_, _> = data.recipes.iter().map(|r| (r.key, r.to_rate())).collect();
+    let recipe_rates: HashMap<_, _> = data
+        .recipes
+        .iter()
+        .map(|r| (r.key, r.to_rate(args.asm)))
+        .collect();
     let mut graph = Graph::new(&recipe_rates);
     for item in args.items {
         let mut iter = item.iter();
         let name = iter.next().unwrap();
-        let recipe = get_recipe(&recipes, name)?;
+        let recipe = get_recipe(&recipe_rates, name)?;
         let required = if let Some(rate) = iter.next() {
             rate.parse()?
         } else if let Some(rate) = args.rate {
             rate
         } else {
-            let rate = recipe.results[0].amount / recipe.energy_required;
+            let rate = recipe.results[0].rate;
             eprintln!(
                 "Using {} for {name} (1 assembler)",
                 facalculo::round_string(&rate)
@@ -91,9 +96,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn get_recipe<'a>(
-    recipes: &HashMap<&str, &'a Recipe<'a>>,
+    recipes: &'a HashMap<&str, RecipeRate<'a>>,
     name: &str,
-) -> Result<&'a Recipe<'a>, String> {
+) -> Result<&'a RecipeRate<'a>, String> {
     if let Some(recipe) = recipes.get(name) {
         Ok(recipe)
     } else {
@@ -119,6 +124,7 @@ struct Data<'a> {
 
 #[derive(Debug, Deserialize)]
 struct Recipe<'a> {
+    category: Category,
     #[serde(borrow)]
     key: &'a str,
     energy_required: Decimal,
@@ -126,8 +132,51 @@ struct Recipe<'a> {
     results: Vec<RecipeResult>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum Category {
+    AdvancedCrafting,
+    CaptiveSpawnerProcess,
+    Centrifuging,
+    Chemistry,
+    ChemistryOrCryogenics,
+    Crafting,
+    CraftingWithFluid,
+    CraftingWithFluidOrMetallurgy,
+    Crushing,
+    Cryogenics,
+    CryogenicsOrAssembling,
+    CryogenicsOrChemistry,
+    Electromagnetics,
+    Electronics,
+    ElectronicsOrAssembling,
+    ElectronicsWithFluid,
+    Metallurgy,
+    MetallurgyOrAssembling,
+    OilProcessing,
+    Organic,
+    OrganicOrAssembling,
+    OrganicOrChemistry,
+    OrganicOrHandCrafting,
+    Pressing,
+    RocketBuilding,
+    Recycling,
+    RecyclingOrHandCrafting,
+    Smelting,
+}
+
 impl<'a> Recipe<'a> {
-    fn to_rate(&self) -> RecipeRate<'a> {
+    fn to_rate(&self, asm: i64) -> RecipeRate<'a> {
+        let speed = match self.category {
+            Category::Crafting | Category::CraftingWithFluid | Category::Electronics => match asm {
+                1 => Decimal::from_str("0.5").unwrap(),
+                2 => Decimal::from_str("0.75").unwrap(),
+                3 => Decimal::from_str("1.25").unwrap(),
+                _ => unimplemented!(),
+            },
+            Category::Smelting => Decimal::new(2, 0),
+            _ => Decimal::ONE,
+        };
         RecipeRate {
             key: self.key,
             ingredients: self
@@ -135,7 +184,7 @@ impl<'a> Recipe<'a> {
                 .iter()
                 .cloned()
                 .map(|i| IngredientRate {
-                    rate: i.amount / self.energy_required,
+                    rate: i.amount / self.energy_required * speed,
                     name: i.name,
                 })
                 .collect(),
@@ -144,7 +193,7 @@ impl<'a> Recipe<'a> {
                 .iter()
                 .cloned()
                 .map(|i| IngredientRate {
-                    rate: i.amount / self.energy_required,
+                    rate: i.amount / self.energy_required * speed,
                     name: i.name,
                 })
                 .collect(),
