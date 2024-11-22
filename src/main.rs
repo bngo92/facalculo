@@ -43,11 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
     let data: Data = serde_json::from_slice(b)?;
-    let recipe_rates: HashMap<_, _> = data
-        .recipes
-        .iter()
-        .map(|r| (r.key, r.to_rate(args.asm)))
-        .collect();
+    let recipe_rates = calculate_rates(&data, args.asm);
     let mut graph = Graph::new(&recipe_rates);
     for item in args.items {
         let mut iter = item.iter();
@@ -120,6 +116,8 @@ fn get_recipe<'a>(
 struct Data<'a> {
     #[serde(borrow)]
     recipes: Vec<Recipe<'a>>,
+    #[serde(borrow)]
+    resources: Vec<Resource<'a>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -165,42 +163,6 @@ enum Category {
     Smelting,
 }
 
-impl<'a> Recipe<'a> {
-    fn to_rate(&self, asm: i64) -> RecipeRate<'a> {
-        let speed = match self.category {
-            Category::Crafting | Category::CraftingWithFluid | Category::Electronics => match asm {
-                1 => Decimal::from_str("0.5").unwrap(),
-                2 => Decimal::from_str("0.75").unwrap(),
-                3 => Decimal::from_str("1.25").unwrap(),
-                _ => unimplemented!(),
-            },
-            Category::Smelting => Decimal::new(2, 0),
-            _ => Decimal::ONE,
-        };
-        RecipeRate {
-            key: self.key,
-            ingredients: self
-                .ingredients
-                .iter()
-                .cloned()
-                .map(|i| IngredientRate {
-                    rate: i.amount / self.energy_required * speed,
-                    name: i.name,
-                })
-                .collect(),
-            results: self
-                .results
-                .iter()
-                .cloned()
-                .map(|i| IngredientRate {
-                    rate: i.amount / self.energy_required * speed,
-                    name: i.name,
-                })
-                .collect(),
-        }
-    }
-}
-
 #[derive(Clone, Debug, Deserialize)]
 struct Ingredient {
     amount: Decimal,
@@ -211,4 +173,66 @@ struct Ingredient {
 struct RecipeResult {
     amount: Decimal,
     name: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct Resource<'a> {
+    #[serde(borrow)]
+    key: &'a str,
+    mining_time: Decimal,
+}
+
+fn calculate_rates<'a>(data: &'a Data<'a>, asm: i64) -> HashMap<&str, RecipeRate<'a>> {
+    let mut recipe_rates: HashMap<_, _> = data
+        .recipes
+        .iter()
+        .map(|r| {
+            let speed = match r.category {
+                Category::Crafting | Category::CraftingWithFluid | Category::Electronics => {
+                    match asm {
+                        1 => Decimal::from_str("0.5").unwrap(),
+                        2 => Decimal::from_str("0.75").unwrap(),
+                        3 => Decimal::from_str("1.25").unwrap(),
+                        _ => unimplemented!(),
+                    }
+                }
+                Category::Smelting => Decimal::new(2, 0),
+                _ => Decimal::ONE,
+            };
+            let rate = RecipeRate {
+                key: r.key,
+                ingredients: r
+                    .ingredients
+                    .iter()
+                    .cloned()
+                    .map(|i| IngredientRate {
+                        rate: i.amount / r.energy_required * speed,
+                        name: i.name,
+                    })
+                    .collect(),
+                results: r
+                    .results
+                    .iter()
+                    .cloned()
+                    .map(|i| IngredientRate {
+                        rate: i.amount / r.energy_required * speed,
+                        name: i.name,
+                    })
+                    .collect(),
+            };
+            (r.key, rate)
+        })
+        .collect();
+    for resource in &data.resources {
+        let rate = RecipeRate {
+            key: resource.key,
+            ingredients: Vec::new(),
+            results: vec![IngredientRate {
+                rate: resource.mining_time * Decimal::from_str("0.5").unwrap(),
+                name: resource.key.to_owned(),
+            }],
+        };
+        recipe_rates.insert(resource.key, rate);
+    }
+    recipe_rates
 }
