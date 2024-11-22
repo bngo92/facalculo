@@ -39,6 +39,7 @@ impl<'a> Graph<'a> {
             &self.graph[self.root].name,
             graph.add_node(self.graph[self.root].clone()),
         )]);
+        let mut edges = HashMap::new();
         // Aggregate nodes by incoming edge
         for i in self.graph.edge_indices() {
             let (ix, iy) = self.graph.edge_endpoints(i).unwrap();
@@ -65,9 +66,20 @@ impl<'a> Graph<'a> {
             if let Some(required) = self.graph[iy].required {
                 *graph[y].required.as_mut().unwrap() += required;
             }
-            if !graph.contains_edge(x, y) {
-                graph.add_edge(x, y, self.graph[i].clone());
+            if !edges.contains_key(&(&self.graph[ix].name, &self.graph[iy].name)) {
+                edges.insert(
+                    (&self.graph[ix].name, &self.graph[iy].name),
+                    graph.add_edge(
+                        x,
+                        y,
+                        Edge {
+                            required: Decimal::ZERO,
+                        },
+                    ),
+                );
             }
+            let edge = edges[&(&self.graph[ix].name, &self.graph[iy].name)];
+            graph[edge].required += self.graph[i].required;
         }
         Graph {
             graph,
