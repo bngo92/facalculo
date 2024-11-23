@@ -5,10 +5,10 @@ use std::{collections::HashMap, fmt::Display};
 
 pub mod compute;
 
-type GraphType = petgraph::Graph<Node, Edge>;
+pub type GraphType = petgraph::Graph<Node, Edge>;
 
 pub struct Graph<'a> {
-    graph: GraphType,
+    pub graph: GraphType,
     root: NodeIndex,
     recipes: &'a HashMap<&'a str, RecipeRate<'a>>,
 }
@@ -145,7 +145,7 @@ pub fn round_string(d: Decimal) -> String {
     d.round_dp(3).to_string()
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Node {
     pub required: Option<Decimal>,
     pub name: String,
@@ -161,10 +161,10 @@ impl Display for Node {
     }
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Edge {
-    required: Decimal,
-    belt: Option<i64>,
+    pub required: Decimal,
+    pub belt: Option<i64>,
 }
 
 impl Display for Edge {
