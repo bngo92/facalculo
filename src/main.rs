@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use facalculo::{compute, Graph, IngredientRate, RecipeRate};
 use rust_decimal::Decimal;
 use serde_derive::Deserialize;
@@ -24,6 +24,15 @@ struct Args {
     asm: i64,
     #[arg(long)]
     debug: bool,
+    #[arg(long, value_enum)]
+    belt: Option<Belt>,
+}
+
+#[derive(Clone, Debug, ValueEnum)]
+enum Belt {
+    Transport = 15,
+    Fast = 30,
+    Express = 45,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -45,6 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let data: Data = serde_json::from_slice(b)?;
     let recipe_rates = calculate_rates(&data, args.asm);
     let mut graph = Graph::new(&recipe_rates);
+    let belt = args.belt.map(|b| b as i64);
     for item in args.items {
         let mut iter = item.iter();
         let name = iter.next().unwrap();
@@ -57,11 +67,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let rate = recipe.results[0].rate;
             eprintln!(
                 "Using {} for {name} (1 assembler)",
-                facalculo::round_string(&rate)
+                facalculo::round_string(rate)
             );
             rate
         };
-        graph.add(required, name);
+        graph.add(required, name, belt);
     }
     if args.group {
         graph = graph.group_nodes();
@@ -73,11 +83,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for (key, required) in compute::total(&graph) {
             println!(
                 "{} {key}/s{}",
-                facalculo::round_string(&required),
+                facalculo::round_string(required),
                 if let Some(recipe) = recipe_rates.get(key) {
                     format!(
                         " ({})",
-                        facalculo::round_string(&(required / recipe.results[0].rate))
+                        facalculo::round_string(required / recipe.results[0].rate)
                     )
                 } else {
                     String::new()

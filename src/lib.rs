@@ -27,9 +27,10 @@ impl<'a> Graph<'a> {
         }
     }
 
-    pub fn add(&mut self, required: Decimal, key: &str) {
-        let node = build_node(required, key, self.recipes, &mut self.graph);
-        self.graph.add_edge(self.root, node, Edge { required });
+    pub fn add(&mut self, required: Decimal, key: &str, belt: Option<i64>) {
+        let node = build_node(required, key, self.recipes, &mut self.graph, belt);
+        self.graph
+            .add_edge(self.root, node, Edge { required, belt });
     }
 
     pub fn group_nodes(&self) -> Graph<'a> {
@@ -74,6 +75,7 @@ impl<'a> Graph<'a> {
                         y,
                         Edge {
                             required: Decimal::ZERO,
+                            belt: self.graph[i].belt,
                         },
                     ),
                 );
@@ -103,6 +105,7 @@ fn build_node(
     key: &str,
     recipes: &HashMap<&str, RecipeRate>,
     graph: &mut GraphType,
+    belt: Option<i64>,
 ) -> NodeIndex {
     let node = if let Some(recipe) = recipes.get(key) {
         let ratio = required / recipe.results[0].rate;
@@ -111,12 +114,13 @@ fn build_node(
             name: key.to_owned(),
         });
         for i in &recipe.ingredients {
-            let n = build_node(ratio * i.rate, &i.name, recipes, graph);
+            let n = build_node(ratio * i.rate, &i.name, recipes, graph, belt);
             graph.add_edge(
                 node,
                 n,
                 Edge {
                     required: ratio * i.rate,
+                    belt,
                 },
             );
         }
@@ -130,7 +134,7 @@ fn build_node(
     node
 }
 
-pub fn round_string(d: &Decimal) -> String {
+pub fn round_string(d: Decimal) -> String {
     d.round_dp(3).to_string()
 }
 
@@ -143,7 +147,7 @@ pub struct Node {
 impl Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(required) = self.required {
-            write!(f, "{} {}", round_string(&required), self.name)
+            write!(f, "{} {}", round_string(required), self.name)
         } else {
             write!(f, "{}", self.name)
         }
@@ -153,11 +157,20 @@ impl Display for Node {
 #[derive(Clone, Serialize)]
 pub struct Edge {
     required: Decimal,
+    belt: Option<i64>,
 }
 
 impl Display for Edge {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", round_string(&self.required))
+        write!(f, "{}", round_string(self.required))?;
+        if let Some(belt) = self.belt {
+            write!(
+                f,
+                " ({})",
+                round_string(self.required / Decimal::from(belt))
+            )?;
+        }
+        Ok(())
     }
 }
 
@@ -172,7 +185,7 @@ impl Display for RecipeRate<'_> {
         write!(
             f,
             "recipe - {} {}: {} / s",
-            round_string(&self.results[0].rate),
+            round_string(self.results[0].rate),
             self.key,
             self.ingredients
                 .iter()
@@ -190,7 +203,7 @@ pub struct IngredientRate {
 
 impl Display for IngredientRate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", round_string(&self.rate), self.name)
+        write!(f, "{} {}", round_string(self.rate), self.name)
     }
 }
 
