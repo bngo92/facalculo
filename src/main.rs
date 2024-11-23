@@ -1,5 +1,5 @@
 use clap::{Parser, ValueEnum};
-use facalculo::{compute, Graph, IngredientRate, RecipeRate};
+use facalculo::{compute, Category, Graph, IngredientRate, RecipeRate};
 use rust_decimal::Decimal;
 use serde_derive::Deserialize;
 use serde_json::Value;
@@ -140,39 +140,6 @@ struct Recipe<'a> {
     results: Vec<RecipeResult>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-enum Category {
-    AdvancedCrafting,
-    CaptiveSpawnerProcess,
-    Centrifuging,
-    Chemistry,
-    ChemistryOrCryogenics,
-    Crafting,
-    CraftingWithFluid,
-    CraftingWithFluidOrMetallurgy,
-    Crushing,
-    Cryogenics,
-    CryogenicsOrAssembling,
-    CryogenicsOrChemistry,
-    Electromagnetics,
-    Electronics,
-    ElectronicsOrAssembling,
-    ElectronicsWithFluid,
-    Metallurgy,
-    MetallurgyOrAssembling,
-    OilProcessing,
-    Organic,
-    OrganicOrAssembling,
-    OrganicOrChemistry,
-    OrganicOrHandCrafting,
-    Pressing,
-    RocketBuilding,
-    Recycling,
-    RecyclingOrHandCrafting,
-    Smelting,
-}
-
 #[derive(Clone, Debug, Deserialize)]
 struct Ingredient {
     amount: Decimal,
@@ -210,6 +177,7 @@ fn calculate_rates<'a>(data: &'a Data<'a>, asm: i64) -> HashMap<&str, RecipeRate
                 _ => Decimal::ONE,
             };
             let rate = RecipeRate {
+                category: r.category,
                 key: r.key,
                 ingredients: r
                     .ingredients
@@ -233,8 +201,38 @@ fn calculate_rates<'a>(data: &'a Data<'a>, asm: i64) -> HashMap<&str, RecipeRate
             (r.key, rate)
         })
         .collect();
+    // Add oil recipes
+    let advanced_oil_processing = data
+        .recipes
+        .iter()
+        .find(|r| r.key == "advanced-oil-processing")
+        .expect("advanced-oil-processing should exist");
+    for result in &advanced_oil_processing.results {
+        recipe_rates.insert(
+            &result.name,
+            RecipeRate {
+                category: advanced_oil_processing.category,
+                key: &result.name,
+                ingredients: advanced_oil_processing
+                    .ingredients
+                    .iter()
+                    .cloned()
+                    .map(|i| IngredientRate {
+                        rate: i.amount / advanced_oil_processing.energy_required,
+                        name: i.name,
+                    })
+                    .collect(),
+                results: vec![IngredientRate {
+                    rate: result.amount / advanced_oil_processing.energy_required,
+                    name: result.name.clone(),
+                }],
+            },
+        );
+    }
+    // Add mining recipes
     for resource in &data.resources {
         let rate = RecipeRate {
+            category: Category::Mining,
             key: resource.key,
             ingredients: Vec::new(),
             results: vec![IngredientRate {

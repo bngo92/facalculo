@@ -1,6 +1,6 @@
 use petgraph::graph::NodeIndex;
 use rust_decimal::Decimal;
-use serde_derive::Serialize;
+use serde_derive::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display};
 
 pub mod compute;
@@ -114,6 +114,13 @@ fn build_node(
             name: key.to_owned(),
         });
         for i in &recipe.ingredients {
+            let belt = if let None | Some(Category::OilProcessing) =
+                recipes.get(i.name.as_str()).map(|r| r.category)
+            {
+                None
+            } else {
+                belt
+            };
             let n = build_node(ratio * i.rate, &i.name, recipes, graph, belt);
             graph.add_edge(
                 node,
@@ -175,6 +182,7 @@ impl Display for Edge {
 }
 
 pub struct RecipeRate<'a> {
+    pub category: Category,
     pub key: &'a str,
     pub ingredients: Vec<IngredientRate>,
     pub results: Vec<IngredientRate>,
@@ -196,6 +204,42 @@ impl Display for RecipeRate<'_> {
     }
 }
 
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Category {
+    AdvancedCrafting,
+    CaptiveSpawnerProcess,
+    Centrifuging,
+    Chemistry,
+    ChemistryOrCryogenics,
+    Crafting,
+    CraftingWithFluid,
+    CraftingWithFluidOrMetallurgy,
+    Crushing,
+    Cryogenics,
+    CryogenicsOrAssembling,
+    CryogenicsOrChemistry,
+    Electromagnetics,
+    Electronics,
+    ElectronicsOrAssembling,
+    ElectronicsWithFluid,
+    Metallurgy,
+    MetallurgyOrAssembling,
+    OilProcessing,
+    Organic,
+    OrganicOrAssembling,
+    OrganicOrChemistry,
+    OrganicOrHandCrafting,
+    Pressing,
+    RocketBuilding,
+    Recycling,
+    RecyclingOrHandCrafting,
+    Smelting,
+    // Added category
+    Mining,
+}
+
+#[derive(Clone)]
 pub struct IngredientRate {
     pub rate: Decimal,
     pub name: String,
