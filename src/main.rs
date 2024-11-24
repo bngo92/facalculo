@@ -74,7 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         graph.add(required, name, belt);
     }
     if args.group {
-        graph = graph.group_nodes();
+        graph.group_nodes();
     }
     if args.render {
         compute::render(&graph)?;
@@ -337,7 +337,8 @@ mod tests {
             "advanced-circuit",
             None,
         );
-        let graph = graph.group_nodes().graph;
+        graph.group_nodes();
+        let graph = graph.graph;
         let mut nodes: Vec<_> = graph.node_weights().collect();
         nodes.sort_by_key(|n| (&n.name, n.required));
         let nodes: Vec<_> = nodes.into_iter().map(ToString::to_string).collect();
@@ -356,7 +357,7 @@ mod tests {
                 "0.267 iron-plate",
                 "0.152 petroleum-gas",
                 "0.083 plastic-bar",
-                "0 water",
+                "water",
             ]
         );
         let mut edges: Vec<_> = graph
@@ -391,7 +392,7 @@ mod tests {
                 "0.167 electronic-circuit -> 0.167 -> 0.267 iron-plate",
                 "0.267 iron-plate -> 0.167 -> 0.333 iron-ore",
                 "0.152 petroleum-gas -> 3.030 -> 6.061 crude-oil",
-                "0.152 petroleum-gas -> 1.515 -> 0 water",
+                "0.152 petroleum-gas -> 1.515 -> water",
                 "0.083 plastic-bar -> 0.083 -> 0.167 coal",
                 "0.083 plastic-bar -> 1.667 -> 0.152 petroleum-gas",
             ]

@@ -1,11 +1,12 @@
-use petgraph::graph::NodeIndex;
+#![feature(let_chains)]
+use petgraph::{algo, graph::NodeIndex, stable_graph::StableGraph, visit::EdgeRef, Direction};
 use rust_decimal::Decimal;
 use serde_derive::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display};
 
 pub mod compute;
 
-pub type GraphType = petgraph::Graph<Node, Edge>;
+pub type GraphType = StableGraph<Node, Edge>;
 
 pub struct Graph<'a> {
     pub graph: GraphType,
@@ -33,60 +34,50 @@ impl<'a> Graph<'a> {
             .add_edge(self.root, node, Edge { required, belt });
     }
 
-    pub fn group_nodes(&self) -> Graph<'a> {
-        let mut graph = GraphType::new();
-        // The root node doesn't have an incoming edge so it needs to be copied separately
-        let mut nodes = HashMap::from([(
-            &self.graph[self.root].name,
-            graph.add_node(self.graph[self.root].clone()),
-        )]);
-        let mut edges = HashMap::new();
-        // Aggregate nodes by incoming edge
-        for i in self.graph.edge_indices() {
-            let (ix, iy) = self.graph.edge_endpoints(i).unwrap();
-            if !nodes.contains_key(&self.graph[ix].name) {
-                nodes.insert(
-                    &self.graph[ix].name,
-                    graph.add_node(Node {
-                        required: Some(Decimal::ZERO),
-                        name: self.graph[ix].name.clone(),
-                    }),
-                );
+    pub fn group_nodes(&mut self) {
+        // Select one node for each item
+        let mut selected_nodes: HashMap<_, NodeIndex> = HashMap::new();
+        let mut nodes = algo::toposort(&self.graph, None).expect("graph should be directed");
+        for node in &nodes {
+            for target in self.graph.neighbors_directed(*node, Direction::Outgoing) {
+                if !selected_nodes.contains_key(&self.graph[target].name) {
+                    selected_nodes.insert(self.graph[target].name.to_owned(), target);
+                }
             }
-            let x = nodes[&self.graph[ix].name];
-            if !nodes.contains_key(&self.graph[iy].name) {
-                nodes.insert(
-                    &self.graph[iy].name,
-                    graph.add_node(Node {
-                        required: Some(Decimal::ZERO),
-                        name: self.graph[iy].name.clone(),
-                    }),
-                );
-            }
-            let y = nodes[&self.graph[iy].name];
-            if let Some(required) = self.graph[iy].required {
-                *graph[y].required.as_mut().unwrap() += required;
-            }
-            if !edges.contains_key(&(&self.graph[ix].name, &self.graph[iy].name)) {
-                edges.insert(
-                    (&self.graph[ix].name, &self.graph[iy].name),
-                    graph.add_edge(
-                        x,
-                        y,
-                        Edge {
-                            required: Decimal::ZERO,
-                            belt: self.graph[i].belt,
-                        },
-                    ),
-                );
-            }
-            let edge = edges[&(&self.graph[ix].name, &self.graph[iy].name)];
-            graph[edge].required += self.graph[i].required;
         }
-        Graph {
-            graph,
-            root: self.root,
-            recipes: self.recipes,
+        // Traverse nodes in reverse order so we only have to handle incoming edges
+        nodes.reverse();
+        for node in nodes {
+            let Some(first_node) = selected_nodes.get(&self.graph[node].name).copied() else {
+                continue;
+            };
+            if node == first_node {
+                continue;
+            }
+            let edges: Vec<_> = self
+                .graph
+                .edges_directed(node, Direction::Incoming)
+                .map(|e| (e.source(), e.id(), *e.weight()))
+                .collect();
+            for (source, id, edge) in edges {
+                // Merge edge with existing edge between selected nodes
+                if let Some(first_source) = selected_nodes.get(&self.graph[source].name).copied()
+                    && let Some(edge) = self.graph.find_edge(first_source, first_node)
+                {
+                    if source == first_source {
+                        continue;
+                    }
+                    let required = self.graph[id].required;
+                    self.graph[edge].required += required;
+                // or move edge to connect them
+                } else {
+                    self.graph.remove_edge(id);
+                    self.graph.add_edge(source, first_node, edge);
+                }
+            }
+            // Merge nodes
+            let x = self.graph.remove_node(node).unwrap().required.unwrap();
+            *self.graph[first_node].required.as_mut().unwrap() += x;
         }
     }
 }
@@ -161,7 +152,7 @@ impl Display for Node {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 pub struct Edge {
     pub required: Decimal,
     pub belt: Option<i64>,
