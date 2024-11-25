@@ -13,7 +13,7 @@ struct Args {
     #[arg(short, long)]
     rate: Option<Decimal>,
     #[arg(long)]
-    group: bool,
+    group: Option<Vec<String>>,
     #[arg(long)]
     render: bool,
     #[arg(long)]
@@ -73,8 +73,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
         graph.add(required, name, belt);
     }
-    if args.group {
-        graph.group_nodes();
+    if let Some(group) = args.group {
+        graph.group_nodes(group);
     }
     if args.render {
         compute::render(&graph)?;
@@ -327,7 +327,7 @@ mod tests {
     }
 
     #[test]
-    fn group_advanced_circuit() {
+    fn group_all_advanced_circuit() {
         let b = include_bytes!("space-age-2.0.11.json");
         let data: Data = serde_json::from_slice(b).unwrap();
         let recipe_rates = calculate_rates(&data, 1);
@@ -337,7 +337,7 @@ mod tests {
             "advanced-circuit",
             None,
         );
-        graph.group_nodes();
+        graph.group_nodes(Vec::new());
         let graph = graph.graph;
         let mut nodes: Vec<_> = graph.node_weights().collect();
         nodes.sort_by_key(|n| (&n.name, n.required));
@@ -389,6 +389,81 @@ mod tests {
                 "0.417 copper-cable -> 0.417 -> 0.667 copper-plate",
                 "0.667 copper-plate -> 0.417 -> 0.833 copper-ore",
                 "0.167 electronic-circuit -> 0.500 -> 0.417 copper-cable",
+                "0.167 electronic-circuit -> 0.167 -> 0.267 iron-plate",
+                "0.267 iron-plate -> 0.167 -> 0.333 iron-ore",
+                "0.152 petroleum-gas -> 3.030 -> 6.061 crude-oil",
+                "0.152 petroleum-gas -> 1.515 -> water",
+                "0.083 plastic-bar -> 0.083 -> 0.167 coal",
+                "0.083 plastic-bar -> 1.667 -> 0.152 petroleum-gas",
+            ]
+        );
+    }
+
+    #[test]
+    fn group_advanced_circuit() {
+        let b = include_bytes!("space-age-2.0.11.json");
+        let data: Data = serde_json::from_slice(b).unwrap();
+        let recipe_rates = calculate_rates(&data, 1);
+        let mut graph = Graph::new(&recipe_rates);
+        graph.add(
+            recipe_rates["advanced-circuit"].results[0].rate,
+            "advanced-circuit",
+            None,
+        );
+        graph.group_nodes(vec![String::from("copper-plate")]);
+        let graph = graph.graph;
+        let mut nodes: Vec<_> = graph.node_weights().collect();
+        nodes.sort_by_key(|n| (&n.name, n.required));
+        let nodes: Vec<_> = nodes.into_iter().map(ToString::to_string).collect();
+        assert_eq!(
+            nodes,
+            vec![
+                "",
+                "1 advanced-circuit",
+                "0.167 coal",
+                "0.167 copper-cable",
+                "0.250 copper-cable",
+                "0.833 copper-ore",
+                "0.667 copper-plate",
+                "6.061 crude-oil",
+                "0.167 electronic-circuit",
+                "0.333 iron-ore",
+                "0.267 iron-plate",
+                "0.152 petroleum-gas",
+                "0.083 plastic-bar",
+                "water",
+            ]
+        );
+        let mut edges: Vec<_> = graph
+            .edge_indices()
+            .map(|i| {
+                let (ix, iy) = graph.edge_endpoints(i).unwrap();
+                (graph[ix].clone(), graph[i].clone(), graph[iy].clone())
+            })
+            .collect();
+        edges.sort_by_key(|(x, e, y)| (x.name.to_owned(), y.name.to_owned(), e.required));
+        let edges: Vec<_> = edges
+            .into_iter()
+            .map(|(x, e, y)| {
+                format!(
+                    "{} -> {} -> {}",
+                    x.to_string(),
+                    e.to_string(),
+                    y.to_string()
+                )
+            })
+            .collect();
+        assert_eq!(
+            edges,
+            vec![
+                " -> 0.083 -> 1 advanced-circuit",
+                "1 advanced-circuit -> 0.333 -> 0.167 copper-cable",
+                "1 advanced-circuit -> 0.167 -> 0.167 electronic-circuit",
+                "1 advanced-circuit -> 0.167 -> 0.083 plastic-bar",
+                "0.167 copper-cable -> 0.167 -> 0.667 copper-plate",
+                "0.250 copper-cable -> 0.250 -> 0.667 copper-plate",
+                "0.667 copper-plate -> 0.417 -> 0.833 copper-ore",
+                "0.167 electronic-circuit -> 0.500 -> 0.250 copper-cable",
                 "0.167 electronic-circuit -> 0.167 -> 0.267 iron-plate",
                 "0.267 iron-plate -> 0.167 -> 0.333 iron-ore",
                 "0.152 petroleum-gas -> 3.030 -> 6.061 crude-oil",

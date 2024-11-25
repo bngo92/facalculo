@@ -34,14 +34,22 @@ impl<'a> Graph<'a> {
             .add_edge(self.root, node, Edge { required, belt });
     }
 
-    pub fn group_nodes(&mut self) {
+    pub fn group_nodes(&mut self, items: Vec<String>) {
         // Select one node for each item
         let mut selected_nodes: HashMap<_, NodeIndex> = HashMap::new();
         let mut nodes = algo::toposort(&self.graph, None).expect("graph should be directed");
         for node in &nodes {
-            for target in self.graph.neighbors_directed(*node, Direction::Outgoing) {
-                if !selected_nodes.contains_key(&self.graph[target].name) {
-                    selected_nodes.insert(self.graph[target].name.to_owned(), target);
+            if selected_nodes.contains_key(&self.graph[*node].name)
+                || items.is_empty()
+                || items.contains(&self.graph[*node].name)
+            {
+                selected_nodes
+                    .entry(self.graph[*node].name.to_owned())
+                    .or_insert(*node);
+                for target in self.graph.neighbors_directed(*node, Direction::Outgoing) {
+                    selected_nodes
+                        .entry(self.graph[target].name.to_owned())
+                        .or_insert(target);
                 }
             }
         }
