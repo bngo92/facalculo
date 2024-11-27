@@ -37,55 +37,104 @@ impl<'a> Graph<'a> {
     pub fn group_nodes(&mut self, items: Vec<String>) {
         // Select one node for each item
         let mut selected_nodes: HashMap<_, NodeIndex> = HashMap::new();
-        let mut nodes = algo::toposort(&self.graph, None).expect("graph should be directed");
-        for node in &nodes {
-            if selected_nodes.contains_key(&self.graph[*node].name)
-                || items.is_empty()
-                || items.contains(&self.graph[*node].name)
-            {
-                selected_nodes
-                    .entry(self.graph[*node].name.to_owned())
-                    .or_insert(*node);
-                for target in self.graph.neighbors_directed(*node, Direction::Outgoing) {
-                    selected_nodes
-                        .entry(self.graph[target].name.to_owned())
-                        .or_insert(target);
-                }
-            }
-        }
-        // Traverse nodes in reverse order so we only have to handle incoming edges
-        nodes.reverse();
-        for node in nodes {
-            let Some(first_node) = selected_nodes.get(&self.graph[node].name).copied() else {
-                continue;
-            };
-            if node == first_node {
+        let nodes = algo::toposort(&self.graph, None).expect("graph should be directed");
+        for node in nodes.iter().copied() {
+            if !selected_nodes.contains_key(&self.graph[node].name) {
+                selected_nodes.insert(self.graph[node].name.to_owned(), node);
                 continue;
             }
+            if !items.is_empty() && !items.contains(&self.graph[node].name) {
+                continue;
+            }
+            let selected_node = selected_nodes[&self.graph[node].name];
+
+            // Move incoming edges to selected node
+            //
+            // Suppose we are grouping b
+            //
+            // a1 a2
+            //  |  |
+            // b1 b2
+            //  |  |
+            // c1 c2
+            //
+            // becomes
+            //
+            // a1 a2
+            //   \ |
+            // b1 b2
+            //  |  |
+            // c1 c2
             let edges: Vec<_> = self
                 .graph
                 .edges_directed(node, Direction::Incoming)
                 .map(|e| (e.source(), e.id(), *e.weight()))
                 .collect();
             for (source, id, edge) in edges {
-                // Merge edge with existing edge between selected nodes
-                if let Some(first_source) = selected_nodes.get(&self.graph[source].name).copied()
-                    && let Some(edge) = self.graph.find_edge(first_source, first_node)
-                {
-                    if source == first_source {
-                        continue;
-                    }
-                    let required = self.graph[id].required;
-                    self.graph[edge].required += required;
-                // or move edge to connect them
-                } else {
-                    self.graph.remove_edge(id);
-                    self.graph.add_edge(source, first_node, edge);
-                }
+                self.graph.add_edge(source, selected_node, edge);
+                self.graph.remove_edge(id);
             }
-            // Merge nodes
-            let x = self.graph.remove_node(node).unwrap().required.unwrap();
-            *self.graph[first_node].required.as_mut().unwrap() += x;
+        }
+
+        // Clean up orphaned nodes
+        // Merge outgoing edges with edges between selected nodes before merging nodes
+        //
+        // a1 a2
+        //   \ |
+        // b1 b2
+        //  |  |
+        // c1 c2
+        //
+        // becomes
+        //
+        // a1 a2
+        //   \ |
+        // b1 b2
+        //     |
+        // c1 c2
+        //
+        // becomes
+        //
+        // a1 a2
+        //   \ |
+        //    b2
+        //     |
+        // c1 c2
+        //
+        // becomes
+        //
+        // a1 a2
+        //   \ |
+        //    b2
+        //     |
+        //    c2
+        for node in nodes {
+            if node == self.root
+                || self
+                    .graph
+                    .neighbors_directed(node, Direction::Incoming)
+                    .count()
+                    > 0
+            {
+                continue;
+            }
+            let selected_node = selected_nodes[&self.graph[node].name];
+            let edges: Vec<_> = self
+                .graph
+                .edges_directed(node, Direction::Outgoing)
+                .map(|e| (e.target(), e.id(), *e.weight()))
+                .collect();
+            for (target, id, edge) in edges {
+                let existing_edge = self
+                    .graph
+                    .find_edge(selected_node, selected_nodes[&self.graph[target].name])
+                    .unwrap();
+                self.graph[existing_edge].required += edge.required;
+                self.graph.remove_edge(id);
+            }
+            let required = self.graph[node].required.unwrap();
+            *self.graph[selected_node].required.as_mut().unwrap() += required;
+            self.graph.remove_node(node);
         }
     }
 }

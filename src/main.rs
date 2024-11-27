@@ -12,7 +12,7 @@ struct Args {
     items: Vec<Vec<String>>,
     #[arg(short, long)]
     rate: Option<Decimal>,
-    #[arg(long)]
+    #[arg(long, num_args = 0..)]
     group: Option<Vec<String>>,
     #[arg(long)]
     render: bool,
