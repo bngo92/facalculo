@@ -2,7 +2,10 @@
 use petgraph::{algo, graph::NodeIndex, stable_graph::StableGraph, visit::EdgeRef, Direction};
 use rust_decimal::Decimal;
 use serde_derive::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Display};
+use std::{
+    collections::{HashMap, VecDeque},
+    fmt::Display,
+};
 
 pub mod compute;
 
@@ -35,18 +38,21 @@ impl<'a> Graph<'a> {
     }
 
     pub fn group_nodes(&mut self, items: Vec<String>) {
+        // Group items and their dependencies
         // Select one node for each item
         let mut selected_nodes: HashMap<_, NodeIndex> = HashMap::new();
         let nodes = algo::toposort(&self.graph, None).expect("graph should be directed");
         for node in nodes.iter().copied() {
-            if !selected_nodes.contains_key(&self.graph[node].name) {
-                selected_nodes.insert(self.graph[node].name.to_owned(), node);
+            if !self.graph.contains_node(node) {
                 continue;
             }
             if !items.is_empty() && !items.contains(&self.graph[node].name) {
                 continue;
             }
-            let selected_node = selected_nodes[&self.graph[node].name];
+            let Some(selected_node) = selected_nodes.get(&self.graph[node].name).copied() else {
+                selected_nodes.insert(self.graph[node].name.to_owned(), node);
+                continue;
+            };
 
             // Move incoming edges to selected node
             //
@@ -74,67 +80,63 @@ impl<'a> Graph<'a> {
                 self.graph.add_edge(source, selected_node, edge);
                 self.graph.remove_edge(id);
             }
-        }
 
-        // Clean up orphaned nodes
-        // Merge outgoing edges with edges between selected nodes before merging nodes
-        //
-        // a1 a2
-        //   \ |
-        // b1 b2
-        //  |  |
-        // c1 c2
-        //
-        // becomes
-        //
-        // a1 a2
-        //   \ |
-        // b1 b2
-        //     |
-        // c1 c2
-        //
-        // becomes
-        //
-        // a1 a2
-        //   \ |
-        //    b2
-        //     |
-        // c1 c2
-        //
-        // becomes
-        //
-        // a1 a2
-        //   \ |
-        //    b2
-        //     |
-        //    c2
-        for node in nodes {
-            if node == self.root
-                || self
+            // Merge subgraphs with BFS
+            // a1 a2
+            //   \ |
+            // b1 b2
+            //  |  |
+            // c1 c2
+            //
+            // becomes
+            //
+            // a1 a2
+            //   \ |
+            // b1 b2
+            //     |
+            // c1 c2
+            //
+            // becomes
+            //
+            // a1 a2
+            //   \ |
+            //    b2
+            //     |
+            // c1 c2
+            //
+            // becomes
+            //
+            // a1 a2
+            //   \ |
+            //    b2
+            //     |
+            //    c2
+            let mut node_bfs = VecDeque::from_iter([node]);
+            let mut selected_bfs = VecDeque::from_iter([selected_node]);
+            while let Some(node) = node_bfs.pop_front() {
+                let mut edges: Vec<_> = self
                     .graph
-                    .neighbors_directed(node, Direction::Incoming)
-                    .count()
-                    > 0
-            {
-                continue;
-            }
-            let selected_node = selected_nodes[&self.graph[node].name];
-            let edges: Vec<_> = self
-                .graph
-                .edges_directed(node, Direction::Outgoing)
-                .map(|e| (e.target(), e.id(), *e.weight()))
-                .collect();
-            for (target, id, edge) in edges {
-                let existing_edge = self
+                    .edges_directed(node, Direction::Outgoing)
+                    .map(|e| (e.target(), e.id(), *e.weight()))
+                    .collect();
+                edges.sort_by_key(|(target, _, _)| &self.graph[*target].name);
+                let selected_node = selected_bfs.pop_front().unwrap();
+                let mut selected_edges: Vec<_> = self
                     .graph
-                    .find_edge(selected_node, selected_nodes[&self.graph[target].name])
-                    .unwrap();
-                self.graph[existing_edge].required += edge.required;
-                self.graph.remove_edge(id);
+                    .edges_directed(selected_node, Direction::Outgoing)
+                    .map(|e| (e.target(), e.id()))
+                    .collect();
+                selected_edges.sort_by_key(|(target, _)| &self.graph[*target].name);
+                for (edge, selected_edge) in edges.into_iter().zip(selected_edges.into_iter()) {
+                    self.graph[selected_edge.1].required += edge.2.required;
+                    self.graph.remove_edge(edge.1);
+                    node_bfs.push_back(edge.0);
+                    selected_bfs.push_back(selected_edge.0);
+                }
+                let required = self.graph[node].required.unwrap();
+                *self.graph[selected_node].required.as_mut().unwrap() += required;
+                self.graph.remove_node(node);
             }
-            let required = self.graph[node].required.unwrap();
-            *self.graph[selected_node].required.as_mut().unwrap() += required;
-            self.graph.remove_node(node);
         }
     }
 }

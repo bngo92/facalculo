@@ -242,6 +242,19 @@ fn calculate_rates<'a>(data: &'a Data<'a>, asm: i64) -> HashMap<&str, RecipeRate
         };
         recipe_rates.insert(resource.key, rate);
     }
+    // Add water pumping
+    recipe_rates.insert(
+        "water",
+        RecipeRate {
+            category: Category::Mining,
+            key: "water",
+            ingredients: Vec::new(),
+            results: vec![IngredientRate {
+                rate: Decimal::new(1200, 0),
+                name: String::from("water"),
+            }],
+        },
+    );
     recipe_rates
 }
 
@@ -282,7 +295,7 @@ mod tests {
                 "0.267 iron-plate",
                 "0.152 petroleum-gas",
                 "0.083 plastic-bar",
-                "water",
+                "0.001 water",
             ]
         );
         let mut edges: Vec<_> = graph
@@ -319,7 +332,7 @@ mod tests {
                 "0.167 electronic-circuit -> 0.167 -> 0.267 iron-plate",
                 "0.267 iron-plate -> 0.167 -> 0.333 iron-ore",
                 "0.152 petroleum-gas -> 3.030 -> 6.061 crude-oil",
-                "0.152 petroleum-gas -> 1.515 -> water",
+                "0.152 petroleum-gas -> 1.515 -> 0.001 water",
                 "0.083 plastic-bar -> 0.083 -> 0.167 coal",
                 "0.083 plastic-bar -> 1.667 -> 0.152 petroleum-gas",
             ]
@@ -357,7 +370,7 @@ mod tests {
                 "0.267 iron-plate",
                 "0.152 petroleum-gas",
                 "0.083 plastic-bar",
-                "water",
+                "0.001 water",
             ]
         );
         let mut edges: Vec<_> = graph
@@ -392,7 +405,7 @@ mod tests {
                 "0.167 electronic-circuit -> 0.167 -> 0.267 iron-plate",
                 "0.267 iron-plate -> 0.167 -> 0.333 iron-ore",
                 "0.152 petroleum-gas -> 3.030 -> 6.061 crude-oil",
-                "0.152 petroleum-gas -> 1.515 -> water",
+                "0.152 petroleum-gas -> 1.515 -> 0.001 water",
                 "0.083 plastic-bar -> 0.083 -> 0.167 coal",
                 "0.083 plastic-bar -> 1.667 -> 0.152 petroleum-gas",
             ]
@@ -431,7 +444,7 @@ mod tests {
                 "0.267 iron-plate",
                 "0.152 petroleum-gas",
                 "0.083 plastic-bar",
-                "water",
+                "0.001 water",
             ]
         );
         let mut edges: Vec<_> = graph
@@ -467,7 +480,7 @@ mod tests {
                 "0.167 electronic-circuit -> 0.167 -> 0.267 iron-plate",
                 "0.267 iron-plate -> 0.167 -> 0.333 iron-ore",
                 "0.152 petroleum-gas -> 3.030 -> 6.061 crude-oil",
-                "0.152 petroleum-gas -> 1.515 -> water",
+                "0.152 petroleum-gas -> 1.515 -> 0.001 water",
                 "0.083 plastic-bar -> 0.083 -> 0.167 coal",
                 "0.083 plastic-bar -> 1.667 -> 0.152 petroleum-gas",
             ]
