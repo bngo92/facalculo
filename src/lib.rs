@@ -33,8 +33,15 @@ impl<'a> Graph<'a> {
 
     pub fn add(&mut self, required: Decimal, key: &str, belt: Option<i64>) {
         let node = build_node(required, key, self.recipes, &mut self.graph, belt);
-        self.graph
-            .add_edge(self.root, node, Edge { required, belt });
+        self.graph.add_edge(
+            self.root,
+            node,
+            Edge {
+                required,
+                belt,
+                item: key.to_owned(),
+            },
+        );
     }
 
     pub fn group_nodes(&mut self, items: Vec<String>) {
@@ -74,7 +81,7 @@ impl<'a> Graph<'a> {
             let edges: Vec<_> = self
                 .graph
                 .edges_directed(node, Direction::Incoming)
-                .map(|e| (e.source(), e.id(), *e.weight()))
+                .map(|e| (e.source(), e.id(), e.weight().clone()))
                 .collect();
             for (source, id, edge) in edges {
                 self.graph.add_edge(source, selected_node, edge);
@@ -117,7 +124,7 @@ impl<'a> Graph<'a> {
                 let mut edges: Vec<_> = self
                     .graph
                     .edges_directed(node, Direction::Outgoing)
-                    .map(|e| (e.target(), e.id(), *e.weight()))
+                    .map(|e| (e.target(), e.id(), e.weight().clone()))
                     .collect();
                 edges.sort_by_key(|(target, _, _)| &self.graph[*target].name);
                 let selected_node = selected_bfs.pop_front().unwrap();
@@ -178,6 +185,7 @@ fn build_node(
                 Edge {
                     required: ratio * i.rate,
                     belt,
+                    item: i.name.to_owned(),
                 },
             );
         }
@@ -211,15 +219,26 @@ impl Display for Node {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Edge {
     pub required: Decimal,
     pub belt: Option<i64>,
+    pub item: String,
 }
 
 impl Display for Edge {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", round_string(self.required))?;
+        write!(
+            f,
+            "{} {}",
+            round_string(self.required),
+            String::from_iter(
+                self.item
+                    .split('-')
+                    .map(|s| s.chars().next().unwrap())
+                    .collect::<Vec<_>>()
+            )
+        )?;
         if let Some(belt) = self.belt {
             write!(
                 f,
