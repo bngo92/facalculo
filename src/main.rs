@@ -165,14 +165,15 @@ fn calculate_rates<'a>(data: &'a Data<'a>, asm: i64) -> HashMap<&str, RecipeRate
         .iter()
         .map(|r| {
             let speed = match r.category {
-                Category::Crafting | Category::CraftingWithFluid | Category::Electronics => {
-                    match asm {
-                        1 => Decimal::from_str("0.5").unwrap(),
-                        2 => Decimal::from_str("0.75").unwrap(),
-                        3 => Decimal::from_str("1.25").unwrap(),
-                        _ => unimplemented!(),
-                    }
-                }
+                Category::Crafting
+                | Category::CraftingWithFluid
+                | Category::Electronics
+                | Category::ElectronicsWithFluid => match asm {
+                    1 => Decimal::from_str("0.5").unwrap(),
+                    2 => Decimal::from_str("0.75").unwrap(),
+                    3 => Decimal::from_str("1.25").unwrap(),
+                    _ => unimplemented!(),
+                },
                 Category::Smelting => Decimal::new(2, 0),
                 _ => Decimal::ONE,
             };
