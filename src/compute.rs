@@ -4,13 +4,59 @@ use graphviz_rust::{
     exec, parse,
     printer::PrinterContext,
 };
-use petgraph::{dot::Dot, visit::Dfs};
+use petgraph::visit::{
+    Dfs, EdgeRef, IntoEdgeReferences, IntoNodeReferences, NodeIndexable, NodeRef,
+};
 use rust_decimal::Decimal;
-use std::{collections::HashMap, process::Command};
+use std::{collections::HashMap, fmt::Write, process::Command};
+
+static INDENT: &str = "    ";
 
 pub fn render(graph: &Graph) -> Result<(), Box<dyn std::error::Error>> {
-    let dot = Dot::new(&graph.graph);
-    let g = parse(&dot.to_string())?;
+    let g = &graph.graph;
+    let mut f = String::new();
+    writeln!(f, "digraph {{")?;
+    for node in g.node_references() {
+        writeln!(
+            f,
+            "{}{} [label = \"{}\"]",
+            INDENT,
+            g.to_index(node.id()),
+            if node.id() == graph.root {
+                "outputs".to_owned()
+            } else {
+                node.weight().to_string()
+            }
+        )?;
+    }
+    for edge in g.edges(graph.root) {
+        writeln!(
+            f,
+            "{}{} -> {} [label = \"{}\" dir=back]",
+            INDENT,
+            g.to_index(edge.source()),
+            g.to_index(edge.target()),
+            edge.weight()
+        )?;
+    }
+    writeln!(f, "{}subgraph cluster {{", INDENT)?;
+    for edge in g.edge_references() {
+        if edge.source() == graph.root {
+            continue;
+        }
+        writeln!(
+            f,
+            "{}{}{} -> {} [label = \"{}\" dir=back]",
+            INDENT,
+            INDENT,
+            g.to_index(edge.source()),
+            g.to_index(edge.target()),
+            edge.weight()
+        )?;
+    }
+    writeln!(f, "{}}}", INDENT)?;
+    writeln!(f, "}}")?;
+    let g = parse(&f.to_string())?;
     exec(
         g,
         &mut PrinterContext::default(),
