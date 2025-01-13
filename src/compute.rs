@@ -29,6 +29,8 @@ pub fn render(graph: &Graph) -> Result<(), Box<dyn std::error::Error>> {
             }
         )?;
     }
+    // Render inputs and outputs outside of the subgraph
+    let mut inputs = Vec::new();
     for edge in g.edges(graph.root) {
         writeln!(
             f,
@@ -39,9 +41,25 @@ pub fn render(graph: &Graph) -> Result<(), Box<dyn std::error::Error>> {
             edge.weight()
         )?;
     }
-    writeln!(f, "{}subgraph cluster {{", INDENT)?;
     for edge in g.edge_references() {
         if edge.source() == graph.root {
+            continue;
+        }
+        if graph.inputs.contains(&g[edge.target()].name) {
+            writeln!(
+                f,
+                "{}{} -> {} [label = \"{}\" dir=back]",
+                INDENT,
+                g.to_index(edge.source()),
+                g.to_index(edge.target()),
+                edge.weight()
+            )?;
+            inputs.push(edge.target());
+        }
+    }
+    writeln!(f, "{}subgraph cluster {{", INDENT)?;
+    for edge in g.edge_references() {
+        if inputs.contains(&edge.target()) || edge.source() == graph.root {
             continue;
         }
         writeln!(
@@ -74,6 +92,7 @@ pub fn total<'a>(graph: &'a Graph) -> HashMap<&'a str, Decimal> {
         graph,
         root,
         recipes,
+        ..
     } = graph;
     let mut dfs = Dfs::new(graph, *root);
     let mut total = HashMap::new();

@@ -15,6 +15,7 @@ pub struct Graph<'a> {
     pub graph: GraphType,
     root: NodeIndex,
     recipes: &'a HashMap<&'a str, RecipeRate<'a>>,
+    inputs: Vec<String>,
 }
 
 impl<'a> Graph<'a> {
@@ -28,6 +29,7 @@ impl<'a> Graph<'a> {
             graph,
             root,
             recipes,
+            inputs: Vec::new(),
         }
     }
 
@@ -44,6 +46,7 @@ impl<'a> Graph<'a> {
         );
     }
 
+    // TODO: we should not expand group nodes
     pub fn group_nodes(&mut self, items: Vec<String>) {
         // Group items and their dependencies
         // Select one node for each item
@@ -145,6 +148,7 @@ impl<'a> Graph<'a> {
                 self.graph.remove_node(node);
             }
         }
+        self.inputs = items;
     }
 }
 
