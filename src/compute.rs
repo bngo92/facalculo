@@ -4,8 +4,9 @@ use graphviz_rust::{
     exec, parse,
     printer::PrinterContext,
 };
-use petgraph::visit::{
-    Dfs, EdgeRef, IntoEdgeReferences, IntoNodeReferences, NodeIndexable, NodeRef,
+use petgraph::{
+    visit::{Dfs, EdgeRef, IntoEdgeReferences, IntoNodeReferences, NodeIndexable, NodeRef},
+    Direction,
 };
 use rust_decimal::Decimal;
 use std::{collections::HashMap, fmt::Write, process::Command};
@@ -22,7 +23,9 @@ pub fn render(graph: &Graph) -> Result<(), Box<dyn std::error::Error>> {
             "{}{} [label = \"{}\"]",
             INDENT,
             g.to_index(node.id()),
-            if node.id() == graph.root {
+            if node.id() == graph.input {
+                "inputs".to_owned()
+            } else if node.id() == graph.root {
                 "outputs".to_owned()
             } else {
                 node.weight().to_string()
@@ -31,7 +34,10 @@ pub fn render(graph: &Graph) -> Result<(), Box<dyn std::error::Error>> {
     }
     // Render inputs and outputs outside of the subgraph
     let mut inputs = Vec::new();
-    for edge in g.edges(graph.root) {
+    for edge in g
+        .edges(graph.root)
+        .chain(g.edges_directed(graph.input, Direction::Incoming))
+    {
         writeln!(
             f,
             "{}{} -> {} [label = \"{}\" dir=back]",
@@ -59,7 +65,10 @@ pub fn render(graph: &Graph) -> Result<(), Box<dyn std::error::Error>> {
     }
     writeln!(f, "{}subgraph cluster {{", INDENT)?;
     for edge in g.edge_references() {
-        if inputs.contains(&edge.target()) || edge.source() == graph.root {
+        if inputs.contains(&edge.target())
+            || edge.source() == graph.root
+            || edge.target() == graph.input
+        {
             continue;
         }
         writeln!(

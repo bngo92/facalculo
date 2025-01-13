@@ -13,6 +13,9 @@ pub type GraphType = StableGraph<Node, Edge>;
 
 pub struct Graph<'a> {
     pub graph: GraphType,
+    // TODO: can we use externals instead of keeping explicit references to the input and output
+    // node
+    input: NodeIndex,
     root: NodeIndex,
     recipes: &'a HashMap<&'a str, RecipeRate<'a>>,
     inputs: Vec<String>,
@@ -25,7 +28,12 @@ impl<'a> Graph<'a> {
             required: None,
             name: String::new(),
         });
+        let input = graph.add_node(Node {
+            required: None,
+            name: String::new(),
+        });
         Graph {
+            input,
             graph,
             root,
             recipes,
@@ -34,7 +42,7 @@ impl<'a> Graph<'a> {
     }
 
     pub fn add(&mut self, required: Decimal, key: &str, belt: Option<i64>) {
-        let node = build_node(required, key, self.recipes, &mut self.graph, belt);
+        let node = build_node(required, key, self.recipes, self, belt);
         self.graph.add_edge(
             self.root,
             node,
@@ -143,9 +151,11 @@ impl<'a> Graph<'a> {
                     node_bfs.push_back(edge.0);
                     selected_bfs.push_back(selected_edge.0);
                 }
-                let required = self.graph[node].required.unwrap();
-                *self.graph[selected_node].required.as_mut().unwrap() += required;
-                self.graph.remove_node(node);
+                // The input node does not have required
+                if let Some(required) = self.graph[node].required {
+                    *self.graph[selected_node].required.as_mut().unwrap() += required;
+                    self.graph.remove_node(node);
+                }
             }
         }
         self.inputs = items;
@@ -165,37 +175,49 @@ fn build_node(
     required: Decimal,
     key: &str,
     recipes: &HashMap<&str, RecipeRate>,
-    graph: &mut GraphType,
+    graph: &mut Graph,
     belt: Option<i64>,
 ) -> NodeIndex {
     let node = if let Some(recipe) = recipes.get(key) {
         let ratio = required / recipe.results[0].rate;
-        let node = graph.add_node(Node {
+        let node = graph.graph.add_node(Node {
             required: Some(ratio),
             name: key.to_owned(),
         });
-        for i in &recipe.ingredients {
-            let belt = if let None | Some(Category::OilProcessing) =
-                recipes.get(i.name.as_str()).map(|r| r.category)
-            {
-                None
-            } else {
-                belt
-            };
-            let n = build_node(ratio * i.rate, &i.name, recipes, graph, belt);
-            graph.add_edge(
+        if recipe.ingredients.is_empty() {
+            graph.graph.add_edge(
                 node,
-                n,
+                graph.input,
                 Edge {
-                    required: ratio * i.rate,
+                    required,
                     belt,
-                    item: i.name.to_owned(),
+                    item: key.to_owned(),
                 },
             );
+        } else {
+            for i in &recipe.ingredients {
+                let belt = if let None | Some(Category::OilProcessing) =
+                    recipes.get(i.name.as_str()).map(|r| r.category)
+                {
+                    None
+                } else {
+                    belt
+                };
+                let n = build_node(ratio * i.rate, &i.name, recipes, graph, belt);
+                graph.graph.add_edge(
+                    node,
+                    n,
+                    Edge {
+                        required: ratio * i.rate,
+                        belt,
+                        item: i.name.to_owned(),
+                    },
+                );
+            }
         }
         node
     } else {
-        graph.add_node(Node {
+        graph.graph.add_node(Node {
             required: None,
             name: key.to_owned(),
         })
