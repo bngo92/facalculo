@@ -1,4 +1,4 @@
-use clap::{Parser, ValueEnum};
+use clap::{Parser, Subcommand, ValueEnum};
 use facalculo::{compute, Category, Graph, IngredientRate, RecipeRate};
 use rust_decimal::Decimal;
 use serde_derive::Deserialize;
@@ -26,6 +26,8 @@ struct Args {
     debug: bool,
     #[arg(long, value_enum)]
     belt: Option<Belt>,
+    #[command(subcommand)]
+    command: Option<Commands>,
 }
 
 #[derive(Clone, Debug, ValueEnum)]
@@ -33,6 +35,15 @@ enum Belt {
     Transport = 15,
     Fast = 30,
     Express = 45,
+}
+
+#[derive(Debug, Subcommand)]
+enum Commands {
+    Generate {
+        item: Vec<String>,
+        #[arg(long)]
+        expand: bool,
+    },
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -55,7 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let recipe_rates = calculate_rates(&data, args.asm);
     let mut graph = Graph::new(&recipe_rates);
     let belt = args.belt.map(|b| b as i64);
-    for item in args.items {
+    if let Some(Commands::Generate { item, expand }) = args.command {
         let mut iter = item.iter();
         let name = iter.next().unwrap();
         let recipe = get_recipe(&recipe_rates, name)?;
@@ -71,10 +82,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
             rate
         };
-        graph.add(required, name, belt);
-    }
-    if let Some(group) = args.group {
-        graph.group_nodes(group);
+        graph.add(required, name, belt, expand);
+    } else {
+        for item in args.items {
+            let mut iter = item.iter();
+            let name = iter.next().unwrap();
+            let recipe = get_recipe(&recipe_rates, name)?;
+            let required = if let Some(rate) = iter.next() {
+                rate.parse()?
+            } else if let Some(rate) = args.rate {
+                rate
+            } else {
+                let rate = recipe.results[0].rate;
+                eprintln!(
+                    "Using {} for {name} (1 assembler)",
+                    facalculo::round_string(rate)
+                );
+                rate
+            };
+            graph.add(required, name, belt, true);
+        }
+        if let Some(group) = args.group {
+            graph.group_nodes(group);
+        }
     }
     if args.render {
         compute::render(&graph)?;
@@ -273,6 +303,7 @@ mod tests {
             recipe_rates["advanced-circuit"].results[0].rate,
             "advanced-circuit",
             None,
+            true,
         );
         let graph = graph.graph;
         let mut nodes: Vec<_> = graph.node_weights().collect();
@@ -281,6 +312,7 @@ mod tests {
         assert_eq!(
             nodes,
             vec![
+                "",
                 "",
                 "1 advanced-circuit",
                 "0.167 coal",
@@ -325,17 +357,23 @@ mod tests {
                 "1 advanced-circuit -> 0.333 cc -> 0.167 copper-cable",
                 "1 advanced-circuit -> 0.167 ec -> 0.167 electronic-circuit",
                 "1 advanced-circuit -> 0.167 pb -> 0.083 plastic-bar",
+                "0.167 coal -> 0.083 c -> ",
                 "0.167 copper-cable -> 0.167 cp -> 0.267 copper-plate",
                 "0.250 copper-cable -> 0.250 cp -> 0.400 copper-plate",
+                "0.333 copper-ore -> 0.167 co -> ",
+                "0.500 copper-ore -> 0.250 co -> ",
                 "0.267 copper-plate -> 0.167 co -> 0.333 copper-ore",
                 "0.400 copper-plate -> 0.250 co -> 0.500 copper-ore",
+                "6.061 crude-oil -> 3.030 co -> ",
                 "0.167 electronic-circuit -> 0.500 cc -> 0.250 copper-cable",
                 "0.167 electronic-circuit -> 0.167 ip -> 0.267 iron-plate",
+                "0.333 iron-ore -> 0.167 io -> ",
                 "0.267 iron-plate -> 0.167 io -> 0.333 iron-ore",
                 "0.152 petroleum-gas -> 3.030 co -> 6.061 crude-oil",
                 "0.152 petroleum-gas -> 1.515 w -> 0.001 water",
                 "0.083 plastic-bar -> 0.083 c -> 0.167 coal",
                 "0.083 plastic-bar -> 1.667 pg -> 0.152 petroleum-gas",
+                "0.001 water -> 1.515 w -> ",
             ]
         );
     }
@@ -350,6 +388,7 @@ mod tests {
             recipe_rates["advanced-circuit"].results[0].rate,
             "advanced-circuit",
             None,
+            true,
         );
         graph.group_nodes(Vec::new());
         let graph = graph.graph;
@@ -359,6 +398,7 @@ mod tests {
         assert_eq!(
             nodes,
             vec![
+                "",
                 "",
                 "1 advanced-circuit",
                 "0.167 coal",
@@ -400,15 +440,20 @@ mod tests {
                 "1 advanced-circuit -> 0.333 cc -> 0.417 copper-cable",
                 "1 advanced-circuit -> 0.167 ec -> 0.167 electronic-circuit",
                 "1 advanced-circuit -> 0.167 pb -> 0.083 plastic-bar",
+                "0.167 coal -> 0.083 c -> ",
                 "0.417 copper-cable -> 0.417 cp -> 0.667 copper-plate",
+                "0.833 copper-ore -> 0.417 co -> ",
                 "0.667 copper-plate -> 0.417 co -> 0.833 copper-ore",
+                "6.061 crude-oil -> 3.030 co -> ",
                 "0.167 electronic-circuit -> 0.500 cc -> 0.417 copper-cable",
                 "0.167 electronic-circuit -> 0.167 ip -> 0.267 iron-plate",
+                "0.333 iron-ore -> 0.167 io -> ",
                 "0.267 iron-plate -> 0.167 io -> 0.333 iron-ore",
                 "0.152 petroleum-gas -> 3.030 co -> 6.061 crude-oil",
                 "0.152 petroleum-gas -> 1.515 w -> 0.001 water",
                 "0.083 plastic-bar -> 0.083 c -> 0.167 coal",
                 "0.083 plastic-bar -> 1.667 pg -> 0.152 petroleum-gas",
+                "0.001 water -> 1.515 w -> ",
             ]
         );
     }
@@ -423,6 +468,7 @@ mod tests {
             recipe_rates["advanced-circuit"].results[0].rate,
             "advanced-circuit",
             None,
+            true,
         );
         graph.group_nodes(vec![String::from("copper-plate")]);
         let graph = graph.graph;
@@ -432,6 +478,7 @@ mod tests {
         assert_eq!(
             nodes,
             vec![
+                "",
                 "",
                 "1 advanced-circuit",
                 "0.167 coal",
@@ -474,16 +521,21 @@ mod tests {
                 "1 advanced-circuit -> 0.333 cc -> 0.167 copper-cable",
                 "1 advanced-circuit -> 0.167 ec -> 0.167 electronic-circuit",
                 "1 advanced-circuit -> 0.167 pb -> 0.083 plastic-bar",
+                "0.167 coal -> 0.083 c -> ",
                 "0.167 copper-cable -> 0.167 cp -> 0.667 copper-plate",
                 "0.250 copper-cable -> 0.250 cp -> 0.667 copper-plate",
+                "0.833 copper-ore -> 0.417 co -> ",
                 "0.667 copper-plate -> 0.417 co -> 0.833 copper-ore",
+                "6.061 crude-oil -> 3.030 co -> ",
                 "0.167 electronic-circuit -> 0.500 cc -> 0.250 copper-cable",
                 "0.167 electronic-circuit -> 0.167 ip -> 0.267 iron-plate",
+                "0.333 iron-ore -> 0.167 io -> ",
                 "0.267 iron-plate -> 0.167 io -> 0.333 iron-ore",
                 "0.152 petroleum-gas -> 3.030 co -> 6.061 crude-oil",
                 "0.152 petroleum-gas -> 1.515 w -> 0.001 water",
                 "0.083 plastic-bar -> 0.083 c -> 0.167 coal",
                 "0.083 plastic-bar -> 1.667 pg -> 0.152 petroleum-gas",
+                "0.001 water -> 1.515 w -> ",
             ]
         );
     }

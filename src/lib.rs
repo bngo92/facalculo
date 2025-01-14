@@ -41,8 +41,15 @@ impl<'a> Graph<'a> {
         }
     }
 
-    pub fn add(&mut self, required: Decimal, key: &str, belt: Option<i64>) {
-        let node = build_node(required, key, self.recipes, self, belt);
+    pub fn add(&mut self, required: Decimal, key: &str, belt: Option<i64>, expand: bool) {
+        let node = build_node(
+            required,
+            key,
+            self.recipes,
+            self,
+            belt,
+            if expand { usize::MAX } else { 1 },
+        );
         self.graph.add_edge(
             self.root,
             node,
@@ -177,6 +184,7 @@ fn build_node(
     recipes: &HashMap<&str, RecipeRate>,
     graph: &mut Graph,
     belt: Option<i64>,
+    depth: usize,
 ) -> NodeIndex {
     let node = if let Some(recipe) = recipes.get(key) {
         let ratio = required / recipe.results[0].rate;
@@ -184,7 +192,7 @@ fn build_node(
             required: Some(ratio),
             name: key.to_owned(),
         });
-        if recipe.ingredients.is_empty() {
+        if recipe.ingredients.is_empty() || depth == 0 {
             graph.graph.add_edge(
                 node,
                 graph.input,
@@ -203,7 +211,7 @@ fn build_node(
                 } else {
                     belt
                 };
-                let n = build_node(ratio * i.rate, &i.name, recipes, graph, belt);
+                let n = build_node(ratio * i.rate, &i.name, recipes, graph, belt, depth - 1);
                 graph.graph.add_edge(
                     node,
                     n,
