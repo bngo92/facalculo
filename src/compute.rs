@@ -13,7 +13,7 @@ use std::{collections::HashMap, fmt::Write, process::Command};
 
 static INDENT: &str = "    ";
 
-pub fn render(graph: &Graph) -> Result<(), Box<dyn std::error::Error>> {
+pub fn render(graph: &Graph, module: bool) -> Result<(), Box<dyn std::error::Error>> {
     let g = &graph.graph;
     let mut f = String::new();
     writeln!(f, "digraph {{")?;
@@ -63,7 +63,9 @@ pub fn render(graph: &Graph) -> Result<(), Box<dyn std::error::Error>> {
             inputs.push(edge.target());
         }
     }
-    writeln!(f, "{}subgraph cluster {{", INDENT)?;
+    if module {
+        writeln!(f, "{}subgraph cluster {{", INDENT)?;
+    }
     for edge in g.edge_references() {
         if inputs.contains(&edge.target())
             || edge.source() == graph.root
@@ -75,13 +77,15 @@ pub fn render(graph: &Graph) -> Result<(), Box<dyn std::error::Error>> {
             f,
             "{}{}{} -> {} [label = \"{}\" dir=back]",
             INDENT,
-            INDENT,
+            if module { INDENT } else { "" },
             g.to_index(edge.source()),
             g.to_index(edge.target()),
             edge.weight()
         )?;
     }
-    writeln!(f, "{}}}", INDENT)?;
+    if module {
+        writeln!(f, "{}}}", INDENT)?;
+    }
     writeln!(f, "}}")?;
     let g = parse(&f.to_string())?;
     exec(

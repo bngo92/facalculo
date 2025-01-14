@@ -66,6 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let recipe_rates = calculate_rates(&data, args.asm);
     let mut graph = Graph::new(&recipe_rates);
     let belt = args.belt.map(|b| b as i64);
+    let mut module = false;
     if let Some(Commands::Generate { item, expand }) = args.command {
         let mut iter = item.iter();
         let name = iter.next().unwrap();
@@ -83,6 +84,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             rate
         };
         graph.add(required, name, belt, expand);
+        module = true;
     } else {
         for item in args.items {
             let mut iter = item.iter();
@@ -107,7 +109,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     if args.render {
-        compute::render(&graph)?;
+        compute::render(&graph, module)?;
     }
     if args.total {
         for (key, required) in compute::total(&graph) {
