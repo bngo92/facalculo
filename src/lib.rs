@@ -25,14 +25,51 @@ impl<'a> Graph<'a> {
     }
 
     pub fn add(&mut self, required: Decimal, key: &str, belt: Option<i64>, expand: bool) {
-        build_node(
-            required,
-            key,
-            self.recipes,
-            self,
-            belt,
-            if expand { usize::MAX } else { 1 },
-        );
+        self.build_node(required, key, belt, if expand { usize::MAX } else { 1 });
+    }
+
+    fn build_node(
+        &mut self,
+        required: Decimal,
+        key: &str,
+        belt: Option<i64>,
+        depth: usize,
+    ) -> NodeIndex {
+        let node = if let Some(recipe) = self.recipes.get(key) {
+            let ratio = required / recipe.results[0].rate;
+            let node = self.graph.add_node(Node {
+                required: Some(ratio),
+                name: key.to_owned(),
+            });
+            if depth > 0 {
+                for i in &recipe.ingredients {
+                    let belt = if let None | Some(Category::OilProcessing) =
+                        self.recipes.get(i.name.as_str()).map(|r| r.category)
+                    {
+                        None
+                    } else {
+                        belt
+                    };
+                    let n = self.build_node(ratio * i.rate, &i.name, belt, depth - 1);
+                    self.graph.add_edge(
+                        node,
+                        n,
+                        Edge {
+                            required: ratio * i.rate,
+                            belt,
+                            item: i.name.to_owned(),
+                        },
+                    );
+                }
+            }
+            node
+        } else {
+            self.graph.add_node(Node {
+                required: None,
+                name: key.to_owned(),
+            })
+        };
+        node
     }
 
     // TODO: we should not expand group nodes
@@ -146,51 +183,6 @@ impl Graph<'_> {
     pub fn to_raw(self) -> RawGraph {
         RawGraph { graph: self.graph }
     }
-}
-
-fn build_node(
-    required: Decimal,
-    key: &str,
-    recipes: &HashMap<&str, RecipeRate>,
-    graph: &mut Graph,
-    belt: Option<i64>,
-    depth: usize,
-) -> NodeIndex {
-    let node = if let Some(recipe) = recipes.get(key) {
-        let ratio = required / recipe.results[0].rate;
-        let node = graph.graph.add_node(Node {
-            required: Some(ratio),
-            name: key.to_owned(),
-        });
-        if depth > 0 {
-            for i in &recipe.ingredients {
-                let belt = if let None | Some(Category::OilProcessing) =
-                    recipes.get(i.name.as_str()).map(|r| r.category)
-                {
-                    None
-                } else {
-                    belt
-                };
-                let n = build_node(ratio * i.rate, &i.name, recipes, graph, belt, depth - 1);
-                graph.graph.add_edge(
-                    node,
-                    n,
-                    Edge {
-                        required: ratio * i.rate,
-                        belt,
-                        item: i.name.to_owned(),
-                    },
-                );
-            }
-        }
-        node
-    } else {
-        graph.graph.add_node(Node {
-            required: None,
-            name: key.to_owned(),
-        })
-    };
-    node
 }
 
 pub fn round_string(d: Decimal) -> String {
