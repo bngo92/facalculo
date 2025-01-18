@@ -314,8 +314,6 @@ mod tests {
         assert_eq!(
             nodes,
             vec![
-                "",
-                "",
                 "1 advanced-circuit",
                 "0.167 coal",
                 "0.167 copper-cable",
@@ -355,27 +353,20 @@ mod tests {
         assert_eq!(
             edges,
             vec![
-                " -> 0.083 ac -> 1 advanced-circuit",
                 "1 advanced-circuit -> 0.333 cc -> 0.167 copper-cable",
                 "1 advanced-circuit -> 0.167 ec -> 0.167 electronic-circuit",
                 "1 advanced-circuit -> 0.167 pb -> 0.083 plastic-bar",
-                "0.167 coal -> 0.083 c -> ",
                 "0.167 copper-cable -> 0.167 cp -> 0.267 copper-plate",
                 "0.250 copper-cable -> 0.250 cp -> 0.400 copper-plate",
-                "0.333 copper-ore -> 0.167 co -> ",
-                "0.500 copper-ore -> 0.250 co -> ",
                 "0.267 copper-plate -> 0.167 co -> 0.333 copper-ore",
                 "0.400 copper-plate -> 0.250 co -> 0.500 copper-ore",
-                "6.061 crude-oil -> 3.030 co -> ",
                 "0.167 electronic-circuit -> 0.500 cc -> 0.250 copper-cable",
                 "0.167 electronic-circuit -> 0.167 ip -> 0.267 iron-plate",
-                "0.333 iron-ore -> 0.167 io -> ",
                 "0.267 iron-plate -> 0.167 io -> 0.333 iron-ore",
                 "0.152 petroleum-gas -> 3.030 co -> 6.061 crude-oil",
                 "0.152 petroleum-gas -> 1.515 w -> 0.001 water",
                 "0.083 plastic-bar -> 0.083 c -> 0.167 coal",
                 "0.083 plastic-bar -> 1.667 pg -> 0.152 petroleum-gas",
-                "0.001 water -> 1.515 w -> ",
             ]
         );
     }
@@ -400,8 +391,6 @@ mod tests {
         assert_eq!(
             nodes,
             vec![
-                "",
-                "",
                 "1 advanced-circuit",
                 "0.167 coal",
                 "0.417 copper-cable",
@@ -438,24 +427,18 @@ mod tests {
         assert_eq!(
             edges,
             vec![
-                " -> 0.083 ac -> 1 advanced-circuit",
                 "1 advanced-circuit -> 0.333 cc -> 0.417 copper-cable",
                 "1 advanced-circuit -> 0.167 ec -> 0.167 electronic-circuit",
                 "1 advanced-circuit -> 0.167 pb -> 0.083 plastic-bar",
-                "0.167 coal -> 0.083 c -> ",
                 "0.417 copper-cable -> 0.417 cp -> 0.667 copper-plate",
-                "0.833 copper-ore -> 0.417 co -> ",
                 "0.667 copper-plate -> 0.417 co -> 0.833 copper-ore",
-                "6.061 crude-oil -> 3.030 co -> ",
                 "0.167 electronic-circuit -> 0.500 cc -> 0.417 copper-cable",
                 "0.167 electronic-circuit -> 0.167 ip -> 0.267 iron-plate",
-                "0.333 iron-ore -> 0.167 io -> ",
                 "0.267 iron-plate -> 0.167 io -> 0.333 iron-ore",
                 "0.152 petroleum-gas -> 3.030 co -> 6.061 crude-oil",
                 "0.152 petroleum-gas -> 1.515 w -> 0.001 water",
                 "0.083 plastic-bar -> 0.083 c -> 0.167 coal",
                 "0.083 plastic-bar -> 1.667 pg -> 0.152 petroleum-gas",
-                "0.001 water -> 1.515 w -> ",
             ]
         );
     }
@@ -480,8 +463,6 @@ mod tests {
         assert_eq!(
             nodes,
             vec![
-                "",
-                "",
                 "1 advanced-circuit",
                 "0.167 coal",
                 "0.167 copper-cable",
@@ -519,25 +500,19 @@ mod tests {
         assert_eq!(
             edges,
             vec![
-                " -> 0.083 ac -> 1 advanced-circuit",
                 "1 advanced-circuit -> 0.333 cc -> 0.167 copper-cable",
                 "1 advanced-circuit -> 0.167 ec -> 0.167 electronic-circuit",
                 "1 advanced-circuit -> 0.167 pb -> 0.083 plastic-bar",
-                "0.167 coal -> 0.083 c -> ",
                 "0.167 copper-cable -> 0.167 cp -> 0.667 copper-plate",
                 "0.250 copper-cable -> 0.250 cp -> 0.667 copper-plate",
-                "0.833 copper-ore -> 0.417 co -> ",
                 "0.667 copper-plate -> 0.417 co -> 0.833 copper-ore",
-                "6.061 crude-oil -> 3.030 co -> ",
                 "0.167 electronic-circuit -> 0.500 cc -> 0.250 copper-cable",
                 "0.167 electronic-circuit -> 0.167 ip -> 0.267 iron-plate",
-                "0.333 iron-ore -> 0.167 io -> ",
                 "0.267 iron-plate -> 0.167 io -> 0.333 iron-ore",
                 "0.152 petroleum-gas -> 3.030 co -> 6.061 crude-oil",
                 "0.152 petroleum-gas -> 1.515 w -> 0.001 water",
                 "0.083 plastic-bar -> 0.083 c -> 0.167 coal",
                 "0.083 plastic-bar -> 1.667 pg -> 0.152 petroleum-gas",
-                "0.001 water -> 1.515 w -> ",
             ]
         );
     }

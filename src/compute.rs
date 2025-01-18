@@ -17,69 +17,47 @@ pub fn render(graph: &Graph, module: bool) -> Result<(), Box<dyn std::error::Err
     let g = &graph.graph;
     let mut f = String::new();
     writeln!(f, "digraph {{")?;
+    writeln!(f, "{INDENT}0 [label = \"outputs\"]")?;
+    writeln!(f, "{INDENT}1 [label = \"inputs\"]")?;
     for node in g.node_references() {
         writeln!(
             f,
             "{}{} [label = \"{}\"]",
             INDENT,
-            g.to_index(node.id()),
-            if node.id() == graph.input {
-                "inputs".to_owned()
-            } else if node.id() == graph.root {
-                "outputs".to_owned()
-            } else {
-                node.weight().to_string()
-            }
+            g.to_index(node.id()) + 2,
+            node.weight()
         )?;
     }
     // Render inputs and outputs outside of the subgraph
-    let mut inputs = Vec::new();
-    for edge in g
-        .edges(graph.root)
-        .chain(g.edges_directed(graph.input, Direction::Incoming))
-    {
+    for node in g.externals(Direction::Incoming) {
         writeln!(
             f,
-            "{}{} -> {} [label = \"{}\" dir=back]",
+            "{}0 -> {} [label = \"{}\" dir=back]",
             INDENT,
-            g.to_index(edge.source()),
-            g.to_index(edge.target()),
-            edge.weight()
+            node.index() + 2,
+            g[node].trim()
         )?;
     }
-    for edge in g.edge_references() {
-        if edge.source() == graph.root {
-            continue;
-        }
-        if graph.inputs.contains(&g[edge.target()].name) {
-            writeln!(
-                f,
-                "{}{} -> {} [label = \"{}\" dir=back]",
-                INDENT,
-                g.to_index(edge.source()),
-                g.to_index(edge.target()),
-                edge.weight()
-            )?;
-            inputs.push(edge.target());
-        }
+    for node in g.externals(Direction::Outgoing) {
+        writeln!(
+            f,
+            "{}{} -> 1 [label = \"{}\" dir=back]",
+            INDENT,
+            node.index() + 2,
+            g[node].trim()
+        )?;
     }
     if module {
         writeln!(f, "{}subgraph cluster {{", INDENT)?;
     }
     for edge in g.edge_references() {
-        if inputs.contains(&edge.target())
-            || edge.source() == graph.root
-            || edge.target() == graph.input
-        {
-            continue;
-        }
         writeln!(
             f,
             "{}{}{} -> {} [label = \"{}\" dir=back]",
             INDENT,
             if module { INDENT } else { "" },
-            g.to_index(edge.source()),
-            g.to_index(edge.target()),
+            g.to_index(edge.source()) + 2,
+            g.to_index(edge.target()) + 2,
             edge.weight()
         )?;
     }
@@ -101,13 +79,8 @@ pub fn render(graph: &Graph, module: bool) -> Result<(), Box<dyn std::error::Err
 }
 
 pub fn total<'a>(graph: &'a Graph) -> HashMap<&'a str, Decimal> {
-    let Graph {
-        graph,
-        root,
-        recipes,
-        ..
-    } = graph;
-    let mut dfs = Dfs::new(graph, *root);
+    let Graph { graph, recipes, .. } = graph;
+    let mut dfs = Dfs::new(graph, graph.externals(Direction::Incoming).next().unwrap());
     let mut total = HashMap::new();
     while let Some(nx) = dfs.next(&graph) {
         if let Some(recipe) = recipes.get(graph[nx].name.as_str()) {

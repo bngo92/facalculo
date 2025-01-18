@@ -13,51 +13,25 @@ pub type GraphType = StableGraph<Node, Edge>;
 
 pub struct Graph<'a> {
     pub graph: GraphType,
-    // TODO: can we use externals instead of keeping explicit references to the input and output
-    // node
-    input: NodeIndex,
-    root: NodeIndex,
     recipes: &'a HashMap<&'a str, RecipeRate<'a>>,
-    inputs: Vec<String>,
 }
 
 impl<'a> Graph<'a> {
     pub fn new(recipes: &'a HashMap<&'a str, RecipeRate<'a>>) -> Graph<'a> {
-        let mut graph = GraphType::new();
-        let root = graph.add_node(Node {
-            required: None,
-            name: String::new(),
-        });
-        let input = graph.add_node(Node {
-            required: None,
-            name: String::new(),
-        });
         Graph {
-            input,
-            graph,
-            root,
+            graph: GraphType::new(),
             recipes,
-            inputs: Vec::new(),
         }
     }
 
     pub fn add(&mut self, required: Decimal, key: &str, belt: Option<i64>, expand: bool) {
-        let node = build_node(
+        build_node(
             required,
             key,
             self.recipes,
             self,
             belt,
             if expand { usize::MAX } else { 1 },
-        );
-        self.graph.add_edge(
-            self.root,
-            node,
-            Edge {
-                required,
-                belt,
-                item: key.to_owned(),
-            },
         );
     }
 
@@ -165,16 +139,12 @@ impl<'a> Graph<'a> {
                 }
             }
         }
-        self.inputs = items;
     }
 }
 
 impl Graph<'_> {
     pub fn to_raw(self) -> RawGraph {
-        RawGraph {
-            graph: self.graph,
-            root: self.root,
-        }
+        RawGraph { graph: self.graph }
     }
 }
 
@@ -192,17 +162,7 @@ fn build_node(
             required: Some(ratio),
             name: key.to_owned(),
         });
-        if recipe.ingredients.is_empty() || depth == 0 {
-            graph.graph.add_edge(
-                node,
-                graph.input,
-                Edge {
-                    required,
-                    belt,
-                    item: key.to_owned(),
-                },
-            );
-        } else {
+        if depth > 0 {
             for i in &recipe.ingredients {
                 let belt = if let None | Some(Category::OilProcessing) =
                     recipes.get(i.name.as_str()).map(|r| r.category)
@@ -243,6 +203,16 @@ pub struct Node {
     pub name: String,
 }
 
+impl Node {
+    fn trim(&self) -> String {
+        if let Some(required) = self.required {
+            format!("{} {}", round_string(required), trim(&self.name))
+        } else {
+            self.name.clone()
+        }
+    }
+}
+
 impl Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(required) = self.required {
@@ -262,17 +232,7 @@ pub struct Edge {
 
 impl Display for Edge {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} {}",
-            round_string(self.required),
-            String::from_iter(
-                self.item
-                    .split('-')
-                    .map(|s| s.chars().next().unwrap())
-                    .collect::<Vec<_>>()
-            )
-        )?;
+        write!(f, "{} {}", round_string(self.required), trim(&self.item))?;
         if let Some(belt) = self.belt {
             write!(
                 f,
@@ -282,6 +242,14 @@ impl Display for Edge {
         }
         Ok(())
     }
+}
+
+fn trim(s: &str) -> String {
+    String::from_iter(
+        s.split('-')
+            .map(|s| s.chars().next().unwrap())
+            .collect::<Vec<_>>(),
+    )
 }
 
 pub struct RecipeRate<'a> {
@@ -357,5 +325,4 @@ impl Display for IngredientRate {
 #[derive(Serialize)]
 pub struct RawGraph {
     graph: GraphType,
-    root: NodeIndex,
 }
