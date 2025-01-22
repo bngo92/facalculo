@@ -25,51 +25,58 @@ impl<'a> Graph<'a> {
     }
 
     pub fn add(&mut self, required: Decimal, key: &str, belt: Option<i64>, expand: bool) {
-        self.build_node(required, key, belt, if expand { usize::MAX } else { 1 });
+        if let Some(recipe) = self.recipes.get(key) {
+            self.build_node(required, recipe, belt, expand);
+        }
     }
 
     fn build_node(
         &mut self,
         required: Decimal,
-        key: &str,
+        recipe: &RecipeRate,
         belt: Option<i64>,
-        depth: usize,
+        expand: bool,
     ) -> NodeIndex {
-        let node = if let Some(recipe) = self.recipes.get(key) {
-            let ratio = required / recipe.results[0].rate;
-            let node = self.graph.add_node(Node {
-                required: Some(ratio),
-                name: key.to_owned(),
-            });
-            if depth > 0 {
-                for i in &recipe.ingredients {
-                    let belt = if let None | Some(Category::OilProcessing) =
-                        self.recipes.get(i.name.as_str()).map(|r| r.category)
-                    {
-                        None
-                    } else {
-                        belt
-                    };
-                    let n = self.build_node(ratio * i.rate, &i.name, belt, depth - 1);
-                    self.graph.add_edge(
-                        node,
-                        n,
-                        Edge {
-                            required: ratio * i.rate,
-                            belt,
-                            item: i.name.to_owned(),
-                        },
-                    );
+        let ratio = required / recipe.results[0].rate;
+        let node = self.graph.add_node(Node {
+            required: Some(ratio),
+            name: recipe.key.to_owned(),
+        });
+        if expand {
+            for edge in self.get_ingredients(recipe, ratio, belt) {
+                if let Some(recipe) = self.recipes.get(edge.item.as_str()) {
+                    let n = self.build_node(edge.required, recipe, belt, expand);
+                    self.graph.add_edge(node, n, edge);
                 }
             }
-            node
-        } else {
-            self.graph.add_node(Node {
-                required: None,
-                name: key.to_owned(),
-            })
-        };
+        }
         node
+    }
+
+    fn get_ingredients(
+        &self,
+        recipe: &RecipeRate<'_>,
+        ratio: Decimal,
+        belt: Option<i64>,
+    ) -> Vec<Edge> {
+        recipe
+            .ingredients
+            .iter()
+            .map(move |i| {
+                let belt = if let None | Some(Category::OilProcessing) =
+                    self.recipes.get(i.name.as_str()).map(|r| r.category)
+                {
+                    None
+                } else {
+                    belt
+                };
+                Edge {
+                    required: ratio * i.rate,
+                    belt,
+                    item: i.name.to_owned(),
+                }
+            })
+            .collect()
     }
 
     // TODO: we should not expand group nodes
