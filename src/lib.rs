@@ -14,6 +14,7 @@ pub type GraphType = StableGraph<Node, Edge>;
 pub struct Graph<'a> {
     pub graph: GraphType,
     recipes: &'a HashMap<&'a str, RecipeRate<'a>>,
+    pub imports: HashMap<String, Vec<(NodeIndex, Decimal)>>,
 }
 
 impl<'a> Graph<'a> {
@@ -21,12 +22,20 @@ impl<'a> Graph<'a> {
         Graph {
             graph: GraphType::new(),
             recipes,
+            imports: HashMap::new(),
         }
     }
 
-    pub fn add(&mut self, required: Decimal, key: &str, belt: Option<i64>, expand: bool) {
+    pub fn add(
+        &mut self,
+        required: Decimal,
+        key: &str,
+        belt: Option<i64>,
+        expand: bool,
+        imports: &[&str],
+    ) {
         if let Some(recipe) = self.recipes.get(key) {
-            self.build_node(required, recipe, belt, expand);
+            self.build_node(required, recipe, belt, expand, imports);
         }
     }
 
@@ -36,6 +45,7 @@ impl<'a> Graph<'a> {
         recipe: &RecipeRate,
         belt: Option<i64>,
         expand: bool,
+        imports: &[&str],
     ) -> NodeIndex {
         let ratio = required / recipe.results[0].rate;
         let node = self.graph.add_node(Node {
@@ -45,8 +55,15 @@ impl<'a> Graph<'a> {
         if expand {
             for edge in self.get_ingredients(recipe, ratio, belt) {
                 if let Some(recipe) = self.recipes.get(edge.item.as_str()) {
-                    let n = self.build_node(edge.required, recipe, belt, expand);
-                    self.graph.add_edge(node, n, edge);
+                    if imports.contains(&edge.item.as_str()) {
+                        self.imports
+                            .entry(edge.item.to_owned())
+                            .or_default()
+                            .push((node, edge.required));
+                    } else {
+                        let n = self.build_node(edge.required, recipe, belt, expand, imports);
+                        self.graph.add_edge(node, n, edge);
+                    }
                 }
             }
         }

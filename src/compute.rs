@@ -67,14 +67,28 @@ pub fn render(graph: &Graph, module: bool) -> Result<(), Box<dyn std::error::Err
             )?;
         } else {
             for edge in edges {
-                writeln!(
-                    f,
-                    "{}{} -> 1 [label = \"{}\" dir=back]",
-                    INDENT,
-                    node.index() + 2,
-                    edge
-                )?;
+                if !graph.imports.contains_key(&edge.item) {
+                    writeln!(
+                        f,
+                        "{}{} -> 1 [label = \"{}\" dir=back]",
+                        INDENT,
+                        node.index() + 2,
+                        edge
+                    )?;
+                }
             }
+        }
+    }
+    for (import, nodes) in &graph.imports {
+        for (node, required) in nodes {
+            writeln!(
+                f,
+                "{}{} -> 1 [label = \"{} {}\" dir=back]",
+                INDENT,
+                g.to_index(*node) + 2,
+                crate::round_string(*required),
+                crate::trim(import)
+            )?;
         }
     }
     for edge in g.edge_references() {

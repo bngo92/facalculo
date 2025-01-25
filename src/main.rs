@@ -43,6 +43,8 @@ enum Commands {
         item: Vec<String>,
         #[arg(long)]
         expand: bool,
+        #[arg(long)]
+        import: Vec<String>,
     },
 }
 
@@ -67,7 +69,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut graph = Graph::new(&recipe_rates);
     let belt = args.belt.map(|b| b as i64);
     let mut module = false;
-    if let Some(Commands::Generate { item, expand }) = args.command {
+    if let Some(Commands::Generate {
+        item,
+        expand,
+        import,
+    }) = args.command
+    {
         let mut iter = item.iter();
         let name = iter.next().unwrap();
         let recipe = get_recipe(&recipe_rates, name)?;
@@ -83,7 +90,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
             rate
         };
-        graph.add(required, name, belt, expand);
+        let imports: Vec<_> = import.iter().map(String::as_str).collect();
+        graph.add(required, name, belt, expand, &imports);
         module = true;
     } else {
         for item in args.items {
@@ -102,7 +110,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 );
                 rate
             };
-            graph.add(required, name, belt, true);
+            graph.add(required, name, belt, true, &Vec::new());
         }
         if let Some(group) = args.group {
             graph.group_nodes(group);
@@ -306,6 +314,7 @@ mod tests {
             "advanced-circuit",
             None,
             true,
+            &[],
         );
         let graph = graph.graph;
         let mut nodes: Vec<_> = graph.node_weights().collect();
@@ -382,6 +391,7 @@ mod tests {
             "advanced-circuit",
             None,
             true,
+            &[],
         );
         graph.group_nodes(Vec::new());
         let graph = graph.graph;
@@ -454,6 +464,7 @@ mod tests {
             "advanced-circuit",
             None,
             true,
+            &[],
         );
         graph.group_nodes(vec![String::from("copper-plate")]);
         let graph = graph.graph;
