@@ -12,8 +12,6 @@ struct Args {
     items: Vec<Vec<String>>,
     #[arg(short, long)]
     rate: Option<Decimal>,
-    #[arg(long, num_args = 0..)]
-    group: Option<Vec<String>>,
     #[arg(long)]
     render: bool,
     #[arg(long)]
@@ -66,9 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let data: Data = serde_json::from_slice(b)?;
     let recipe_rates = calculate_rates(&data, args.asm);
-    let mut graph = Graph::new(&recipe_rates);
     let belt = args.belt.map(|b| b as i64);
-    let mut module = false;
     if let Some(Commands::Generate {
         item,
         expand,
@@ -93,59 +89,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let imports: Vec<_> = import.iter().map(String::as_str).collect();
         let mut m = Module::default();
         m.add(&recipe_rates, name, expand, &imports);
-        graph = Graph::from_module(
+        let graph = Graph::from_module(
             m,
             HashMap::from_iter([(name.clone(), required)]),
             &recipe_rates,
             belt,
         );
-        /*let mut graph = Graph::new(&recipe_rates);
-        graph.add(required, name, belt, expand, &imports);*/
-        module = true;
-    } else {
-        for item in args.items {
-            let mut iter = item.iter();
-            let name = iter.next().unwrap();
-            let recipe = get_recipe(&recipe_rates, name)?;
-            let required = if let Some(rate) = iter.next() {
-                rate.parse()?
-            } else if let Some(rate) = args.rate {
-                rate
-            } else {
-                let rate = recipe.results[0].rate;
-                eprintln!(
-                    "Using {} for {name} (1 assembler)",
-                    facalculo::round_string(rate)
+        if args.render {
+            compute::render(&graph)?;
+        }
+        if args.total {
+            for (key, required) in compute::total(&graph) {
+                println!(
+                    "{} {key}/s{}",
+                    facalculo::round_string(required),
+                    if let Some(recipe) = recipe_rates.get(key) {
+                        format!(
+                            " ({})",
+                            facalculo::round_string(required / recipe.results[0].rate)
+                        )
+                    } else {
+                        String::new()
+                    }
                 );
-                rate
-            };
-            graph.add(required, name, belt, true, &Vec::new());
+            }
         }
-        if let Some(group) = args.group {
-            graph.group_nodes(group);
+        if args.out {
+            println!("{}", serde_json::to_string_pretty(&graph.to_raw())?);
         }
-    }
-    if args.render {
-        compute::render(&graph, module)?;
-    }
-    if args.total {
-        for (key, required) in compute::total(&graph) {
-            println!(
-                "{} {key}/s{}",
-                facalculo::round_string(required),
-                if let Some(recipe) = recipe_rates.get(key) {
-                    format!(
-                        " ({})",
-                        facalculo::round_string(required / recipe.results[0].rate)
-                    )
-                } else {
-                    String::new()
-                }
-            );
-        }
-    }
-    if args.out {
-        println!("{}", serde_json::to_string_pretty(&graph.to_raw())?);
     }
     Ok(())
 }

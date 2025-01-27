@@ -13,29 +13,25 @@ use std::{collections::HashMap, fmt::Write, process::Command};
 
 static INDENT: &str = "    ";
 
-pub fn render(graph: &Graph, module: bool) -> Result<(), Box<dyn std::error::Error>> {
+pub fn render(graph: &Graph) -> Result<(), Box<dyn std::error::Error>> {
     let g = &graph.graph;
     let mut f = String::new();
     writeln!(f, "digraph {{")?;
     writeln!(f, "{INDENT}0 [label = \"outputs\"]")?;
     writeln!(f, "{INDENT}1 [label = \"inputs\"]")?;
-    if module {
-        writeln!(f, "{}subgraph cluster {{", INDENT)?;
-        writeln!(f, "{INDENT}{INDENT}node [shape=record]")?;
-    }
+    writeln!(f, "{}subgraph cluster {{", INDENT)?;
+    writeln!(f, "{INDENT}{INDENT}node [shape=record]")?;
     for node in g.node_references() {
         writeln!(
             f,
             "{}{}{} [label = \"{}\"]",
             INDENT,
-            if module { INDENT } else { "" },
+            INDENT,
             g.to_index(node.id()) + 2,
             node.weight()
         )?;
     }
-    if module {
-        writeln!(f, "{}}}", INDENT)?;
-    }
+    writeln!(f, "{}}}", INDENT)?;
     // Render inputs and outputs outside of the subgraph
     for node in g.externals(Direction::Incoming) {
         let mut node_obj = g[node].clone();
