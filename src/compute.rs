@@ -1,36 +1,22 @@
 use crate::Graph;
-use graphviz_rust::{
-    cmd::{CommandArg, Format},
-    exec, parse,
-    printer::PrinterContext,
-};
 use petgraph::{
     visit::{Dfs, EdgeRef, IntoEdgeReferences, IntoNodeReferences, NodeIndexable, NodeRef},
     Direction,
 };
 use rust_decimal::Decimal;
-use std::{collections::HashMap, fmt::Write, process::Command};
+use std::{collections::HashMap, fmt::Write};
 
 static INDENT: &str = "    ";
 
-pub fn render(graph: &Graph) -> Result<(), Box<dyn std::error::Error>> {
+pub fn render(graph: &Graph) -> Result<String, Box<dyn std::error::Error>> {
     let mut f = String::new();
     writeln!(f, "digraph {{")?;
+    writeln!(f, "{INDENT}newrank=true")?;
     writeln!(f, "{INDENT}0 [label = \"outputs\"]")?;
     writeln!(f, "{INDENT}1 [label = \"inputs\"]")?;
     render_module(&mut f, graph, INDENT)?;
     writeln!(f, "}}")?;
-    let g = parse(&f.to_string())?;
-    exec(
-        g,
-        &mut PrinterContext::default(),
-        vec![
-            Format::Svg.into(),
-            CommandArg::Output("out.svg".to_string()),
-        ],
-    )?;
-    Command::new("open").arg("out.svg").spawn()?;
-    Ok(())
+    Ok(f)
 }
 
 fn render_module(

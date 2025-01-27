@@ -1,9 +1,14 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use facalculo::{compute, Category, Graph, IngredientRate, Module, RecipeRate};
+use graphviz_rust::{
+    cmd::{CommandArg, Format},
+    exec, parse,
+    printer::PrinterContext,
+};
 use rust_decimal::Decimal;
 use serde_derive::Deserialize;
 use serde_json::Value;
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, process::Command, str::FromStr};
 
 #[derive(Parser, Debug)]
 #[command()]
@@ -95,8 +100,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &recipe_rates,
             belt,
         );
+        let out = compute::render(&graph)?;
         if args.render {
-            compute::render(&graph)?;
+            let g = parse(&out)?;
+            exec(
+                g,
+                &mut PrinterContext::default(),
+                vec![
+                    Format::Svg.into(),
+                    CommandArg::Output("out.svg".to_string()),
+                ],
+            )?;
+            Command::new("open").arg("out.svg").spawn()?;
         }
         if args.total {
             for (key, required) in compute::total(&graph) {
@@ -115,7 +130,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         if args.out {
-            println!("{}", serde_json::to_string_pretty(&graph.to_raw())?);
+            println!("{}", out);
         }
     }
     Ok(())

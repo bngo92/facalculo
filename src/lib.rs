@@ -1,7 +1,7 @@
 #![feature(let_chains)]
 use petgraph::{algo, graph::NodeIndex, stable_graph::StableGraph, visit::EdgeRef, Direction};
 use rust_decimal::Decimal;
-use serde_derive::{Deserialize, Serialize};
+use serde_derive::Deserialize;
 use std::{
     collections::{HashMap, VecDeque},
     fmt::Display,
@@ -289,17 +289,11 @@ impl<'a> Graph<'a> {
     }
 }
 
-impl Graph<'_> {
-    pub fn to_raw(self) -> RawGraph {
-        RawGraph { graph: self.graph }
-    }
-}
-
 pub fn round_string(d: Decimal) -> String {
     d.round_dp(3).to_string()
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Node {
     pub required: Option<Decimal>,
     pub name: String,
@@ -325,7 +319,7 @@ impl Display for Node {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Edge {
     pub required: Decimal,
     pub belt: Option<i64>,
@@ -422,9 +416,4 @@ impl Display for IngredientRate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} {}", round_string(self.rate), self.name)
     }
-}
-
-#[derive(Serialize)]
-pub struct RawGraph {
-    graph: GraphType,
 }
