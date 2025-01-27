@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand, ValueEnum};
-use facalculo::{compute, Category, Graph, IngredientRate, RecipeRate};
+use facalculo::{compute, Category, Graph, IngredientRate, Module, RecipeRate};
 use rust_decimal::Decimal;
 use serde_derive::Deserialize;
 use serde_json::Value;
@@ -91,7 +91,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             rate
         };
         let imports: Vec<_> = import.iter().map(String::as_str).collect();
-        graph.add(required, name, belt, expand, &imports);
+        let mut m = Module::default();
+        m.add(&recipe_rates, name, expand, &imports);
+        graph = Graph::from_module(
+            m,
+            HashMap::from_iter([(name.clone(), required)]),
+            &recipe_rates,
+            belt,
+        );
+        /*let mut graph = Graph::new(&recipe_rates);
+        graph.add(required, name, belt, expand, &imports);*/
         module = true;
     } else {
         for item in args.items {

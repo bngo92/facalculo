@@ -11,6 +11,47 @@ pub mod compute;
 
 pub type GraphType = StableGraph<Node, Edge>;
 
+#[derive(Default)]
+pub struct Module {
+    pub outputs: Vec<String>,
+    pub nodes: HashMap<String, Vec<String>>,
+}
+
+impl Module {
+    pub fn add(
+        &mut self,
+        recipes: &HashMap<&str, RecipeRate>,
+        key: &str,
+        expand: bool,
+        imports: &[&str],
+    ) {
+        self.outputs.push(key.to_owned());
+        self.add_node(recipes, key, expand, imports);
+    }
+
+    fn add_node(
+        &mut self,
+        recipes: &HashMap<&str, RecipeRate>,
+        key: &str,
+        expand: bool,
+        imports: &[&str],
+    ) {
+        let mut edges = Vec::new();
+        if expand {
+            if let Some(recipe) = recipes.get(key) {
+                for edge in &recipe.ingredients {
+                    let edge = &edge.name;
+                    if !imports.contains(&edge.as_str()) {
+                        self.add_node(recipes, edge, expand, imports);
+                        edges.push(edge.clone());
+                    }
+                }
+            }
+        }
+        self.nodes.insert(key.to_owned(), edges);
+    }
+}
+
 pub struct Graph<'a> {
     pub graph: GraphType,
     recipes: &'a HashMap<&'a str, RecipeRate<'a>>,
@@ -24,6 +65,51 @@ impl<'a> Graph<'a> {
             recipes,
             imports: HashMap::new(),
         }
+    }
+
+    pub fn from_module(
+        module: Module,
+        required: HashMap<String, Decimal>,
+        recipes: &'a HashMap<&'a str, RecipeRate<'a>>,
+        belt: Option<i64>,
+    ) -> Graph {
+        let mut graph = Graph::new(recipes);
+        for (item, required) in required {
+            if let Some(recipe) = recipes.get(item.as_str()) {
+                graph.build_module_node(&module, required, recipe, belt);
+            }
+        }
+        graph
+    }
+
+    fn build_module_node(
+        &mut self,
+        module: &Module,
+        required: Decimal,
+        recipe: &RecipeRate,
+        belt: Option<i64>,
+    ) -> NodeIndex {
+        let ratio = required / recipe.results[0].rate;
+        let node = self.graph.add_node(Node {
+            required: Some(ratio),
+            name: recipe.key.to_owned(),
+        });
+        if let Some(nodes) = module.nodes.get(recipe.key) {
+            for edge in self.get_ingredients(recipe, ratio, belt) {
+                if let Some(recipe) = self.recipes.get(edge.item.as_str()) {
+                    if nodes.contains(&edge.item) {
+                        let n = self.build_module_node(module, edge.required, recipe, belt);
+                        self.graph.add_edge(node, n, edge);
+                    } else {
+                        self.imports
+                            .entry(edge.item.to_owned())
+                            .or_default()
+                            .push((node, edge.required));
+                    }
+                }
+            }
+        }
+        node
     }
 
     pub fn add(
