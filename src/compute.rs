@@ -14,24 +14,43 @@ use std::{collections::HashMap, fmt::Write, process::Command};
 static INDENT: &str = "    ";
 
 pub fn render(graph: &Graph) -> Result<(), Box<dyn std::error::Error>> {
-    let g = &graph.graph;
     let mut f = String::new();
     writeln!(f, "digraph {{")?;
     writeln!(f, "{INDENT}0 [label = \"outputs\"]")?;
     writeln!(f, "{INDENT}1 [label = \"inputs\"]")?;
-    writeln!(f, "{}subgraph cluster {{", INDENT)?;
-    writeln!(f, "{INDENT}{INDENT}node [shape=record]")?;
+    render_module(&mut f, graph, INDENT)?;
+    writeln!(f, "}}")?;
+    let g = parse(&f.to_string())?;
+    exec(
+        g,
+        &mut PrinterContext::default(),
+        vec![
+            Format::Svg.into(),
+            CommandArg::Output("out.svg".to_string()),
+        ],
+    )?;
+    Command::new("open").arg("out.svg").spawn()?;
+    Ok(())
+}
+
+fn render_module(
+    f: &mut impl Write,
+    graph: &Graph,
+    indent: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let g = &graph.graph;
+    writeln!(f, "{indent}subgraph cluster {{")?;
+    writeln!(f, "{indent}{INDENT}node [shape=record]")?;
     for node in g.node_references() {
         writeln!(
             f,
-            "{}{}{} [label = \"{}\"]",
-            INDENT,
+            "{indent}{}{} [label = \"{}\"]",
             INDENT,
             g.to_index(node.id()) + 2,
             node.weight()
         )?;
     }
-    writeln!(f, "{}}}", INDENT)?;
+    writeln!(f, "{indent}}}")?;
     // Render inputs and outputs outside of the subgraph
     for node in g.externals(Direction::Incoming) {
         let mut node_obj = g[node].clone();
@@ -39,8 +58,7 @@ pub fn render(graph: &Graph) -> Result<(), Box<dyn std::error::Error>> {
             graph.recipes[node_obj.name.as_str()].results[0].rate;
         writeln!(
             f,
-            "{}0 -> {} [label = \"{}\" dir=back]",
-            INDENT,
+            "{indent}0 -> {} [label = \"{}\" dir=back]",
             node.index() + 2,
             node_obj.trim()
         )?;
@@ -57,8 +75,7 @@ pub fn render(graph: &Graph) -> Result<(), Box<dyn std::error::Error>> {
                 graph.recipes[node_obj.name.as_str()].results[0].rate;
             writeln!(
                 f,
-                "{}{} -> 1 [label = \"{}\" dir=back]",
-                INDENT,
+                "{indent}{} -> 1 [label = \"{}\" dir=back]",
                 node.index() + 2,
                 node_obj.trim()
             )?;
@@ -67,8 +84,7 @@ pub fn render(graph: &Graph) -> Result<(), Box<dyn std::error::Error>> {
                 if !graph.imports.contains_key(&edge.item) {
                     writeln!(
                         f,
-                        "{}{} -> 1 [label = \"{}\" dir=back]",
-                        INDENT,
+                        "{indent}{} -> 1 [label = \"{}\" dir=back]",
                         node.index() + 2,
                         edge
                     )?;
@@ -80,8 +96,7 @@ pub fn render(graph: &Graph) -> Result<(), Box<dyn std::error::Error>> {
         for (node, required) in nodes {
             writeln!(
                 f,
-                "{}{} -> 1 [label = \"{} {}\" dir=back]",
-                INDENT,
+                "{indent}{} -> 1 [label = \"{} {}\" dir=back]",
                 g.to_index(*node) + 2,
                 crate::round_string(*required),
                 crate::trim(import)
@@ -91,24 +106,12 @@ pub fn render(graph: &Graph) -> Result<(), Box<dyn std::error::Error>> {
     for edge in g.edge_references() {
         writeln!(
             f,
-            "{}{} -> {} [label = \"{}\" dir=back]",
-            INDENT,
+            "{indent}{} -> {} [label = \"{}\" dir=back]",
             g.to_index(edge.source()) + 2,
             g.to_index(edge.target()) + 2,
             edge.weight()
         )?;
     }
-    writeln!(f, "}}")?;
-    let g = parse(&f.to_string())?;
-    exec(
-        g,
-        &mut PrinterContext::default(),
-        vec![
-            Format::Svg.into(),
-            CommandArg::Output("out.svg".to_string()),
-        ],
-    )?;
-    Command::new("open").arg("out.svg").spawn()?;
     Ok(())
 }
 
