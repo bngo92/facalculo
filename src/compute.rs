@@ -21,6 +21,7 @@ pub fn render(graph: &Graph, module: bool) -> Result<(), Box<dyn std::error::Err
     writeln!(f, "{INDENT}1 [label = \"inputs\"]")?;
     if module {
         writeln!(f, "{}subgraph cluster {{", INDENT)?;
+        writeln!(f, "{INDENT}{INDENT}node [shape=record]")?;
     }
     for node in g.node_references() {
         writeln!(
