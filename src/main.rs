@@ -8,7 +8,12 @@ use graphviz_rust::{
 use rust_decimal::Decimal;
 use serde_derive::Deserialize;
 use serde_json::Value;
-use std::{collections::HashMap, process::Command, str::FromStr};
+use std::{
+    collections::{HashMap, HashSet},
+    fs,
+    process::Command,
+    str::FromStr,
+};
 
 #[derive(Parser, Debug)]
 #[command()]
@@ -48,6 +53,13 @@ enum Commands {
         #[arg(long)]
         import: Vec<String>,
     },
+    Render {
+        files: Vec<String>,
+        #[arg(short, long, num_args = 2)]
+        item: Vec<Vec<String>>,
+        #[arg(short, long)]
+        rate: Option<Decimal>,
+    },
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -56,56 +68,134 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let data: Data = serde_json::from_slice(b)?;
     let recipe_rates = calculate_rates(&data, args.asm);
     let belt = args.belt.map(|b| b as i64);
-    if let Some(Commands::Generate {
-        item: items,
-        expand,
-        import,
-        rate,
-    }) = args.command
-    {
-        if args.debug {
-            let data: Value = serde_json::from_slice(b)?;
-            println!(
-                "{:?}",
-                data["recipes"]
-                    .as_array()
-                    .expect("recipes should be an array")
-                    .iter()
-                    .find(|r| r["key"] == items[0][0])
-                    .ok_or(format!("{} was not found", items[0][0]))?
-            );
-            return Ok(());
-        }
-        let imports: Vec<_> = import.iter().map(String::as_str).collect();
-        let mut modules = Vec::new();
-        let mut required = HashMap::new();
-        for item in items {
-            let mut iter = item.iter();
-            let name = iter.next().unwrap();
-            let mut module = Module::new(name.to_owned());
-            module.add(&recipe_rates, name, expand, &imports);
-            modules.push(module);
-            let recipe = get_recipe(&recipe_rates, name)?;
-            let r = if let Some(rate) = iter.next() {
-                rate.parse()?
-            } else if let Some(rate) = rate {
-                rate
-            } else {
-                let rate = recipe.results[0].rate;
-                eprintln!(
-                    "Using {} for {name} (1 assembler)",
-                    facalculo::round_string(rate)
+    match args.command {
+        None => (),
+        Some(Commands::Generate {
+            item: items,
+            expand,
+            import,
+            rate,
+        }) => {
+            if args.debug {
+                let data: Value = serde_json::from_slice(b)?;
+                println!(
+                    "{:?}",
+                    data["recipes"]
+                        .as_array()
+                        .expect("recipes should be an array")
+                        .iter()
+                        .find(|r| r["key"] == items[0][0])
+                        .ok_or(format!("{} was not found", items[0][0]))?
                 );
-                rate
-            };
-            required.insert(name.clone(), r);
+                return Ok(());
+            }
+            let imports: Vec<_> = import.iter().map(String::as_str).collect();
+            let mut modules = Vec::new();
+            let mut required = HashMap::new();
+            for item in items {
+                let mut iter = item.iter();
+                let name = iter.next().unwrap();
+                let mut module = Module::new(name.to_owned());
+                module.add(&recipe_rates, name, expand, &imports);
+                modules.push(module);
+                let recipe = get_recipe(&recipe_rates, name)?;
+                let r = if let Some(rate) = iter.next() {
+                    rate.parse()?
+                } else if let Some(rate) = rate {
+                    rate
+                } else {
+                    let rate = recipe.results[0].rate;
+                    eprintln!(
+                        "Using {} for {name} (1 assembler)",
+                        facalculo::round_string(rate)
+                    );
+                    rate
+                };
+                required.insert(name.clone(), r);
+            }
+            let graphs: Vec<_> = modules
+                .iter()
+                .cloned()
+                .map(|m| Graph::from_module(m, &required, &recipe_rates, belt))
+                .collect();
+            let out = compute::render(&graphs)?;
+            if args.render {
+                let g = parse(&out)?;
+                exec(
+                    g,
+                    &mut PrinterContext::default(),
+                    vec![
+                        Format::Svg.into(),
+                        CommandArg::Output("out.svg".to_string()),
+                    ],
+                )?;
+                Command::new("open").arg("out.svg").spawn()?;
+            }
+            if args.total {
+                for (key, required) in compute::total(&graphs) {
+                    println!(
+                        "{} {key}/s{}",
+                        facalculo::round_string(required),
+                        if let Some(recipe) = recipe_rates.get(key) {
+                            format!(
+                                " ({})",
+                                facalculo::round_string(required / recipe.results[0].rate)
+                            )
+                        } else {
+                            String::new()
+                        }
+                    );
+                }
+            }
+            if args.out {
+                for module in modules {
+                    println!("{}", serde_json::to_string_pretty(&module)?);
+                }
+            }
         }
-        let graphs: Vec<_> = modules
-            .into_iter()
-            .map(|m| Graph::from_module(m, &required, &recipe_rates, belt))
-            .collect();
-        let out = compute::render(&graphs)?;
-        if args.render {
+        Some(Commands::Render {
+            files,
+            item: items,
+            rate,
+        }) => {
+            let modules = files
+                .into_iter()
+                .map(|f| -> Result<Module, Box<dyn std::error::Error>> {
+                    Ok(serde_json::from_slice::<Module>(&fs::read(f)?)?)
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let outputs: HashSet<_> = modules.iter().flat_map(|m| m.outputs.clone()).collect();
+            let rates = items
+                .into_iter()
+                .map(|items| {
+                    if let [item, rate] = &items[..] {
+                        Ok((item.clone(), rate.parse()?))
+                    } else {
+                        unimplemented!()
+                    }
+                })
+                .collect::<Result<HashMap<_, Decimal>, Box<dyn std::error::Error>>>()?;
+            let mut required = HashMap::new();
+            for o in outputs {
+                let rate = if let Some(rate) = rates.get(&o) {
+                    *rate
+                } else if let Some(rate) = rate {
+                    rate
+                } else {
+                    let rate = recipe_rates[o.as_str()].results[0].rate;
+                    eprintln!(
+                        "Using {} for {o} (1 assembler)",
+                        facalculo::round_string(rate)
+                    );
+                    rate
+                };
+                required.insert(o, rate);
+            }
+            let graphs: Vec<_> = modules
+                .into_iter()
+                .map(|m| Graph::from_module(m, &required, &recipe_rates, belt))
+                .collect();
+            let out = compute::render(&graphs)?;
             let g = parse(&out)?;
             exec(
                 g,
@@ -117,26 +207,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             )?;
             Command::new("open").arg("out.svg").spawn()?;
         }
-        if args.total {
-            for (key, required) in compute::total(&graphs) {
-                println!(
-                    "{} {key}/s{}",
-                    facalculo::round_string(required),
-                    if let Some(recipe) = recipe_rates.get(key) {
-                        format!(
-                            " ({})",
-                            facalculo::round_string(required / recipe.results[0].rate)
-                        )
-                    } else {
-                        String::new()
-                    }
-                );
-            }
-        }
-        if args.out {
-            println!("{}", out);
-        }
-    }
+    };
     Ok(())
 }
 

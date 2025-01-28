@@ -1,7 +1,7 @@
 #![feature(let_chains)]
 use petgraph::{algo, graph::NodeIndex, stable_graph::StableGraph, visit::EdgeRef, Direction};
 use rust_decimal::Decimal;
-use serde_derive::Deserialize;
+use serde_derive::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, VecDeque},
     fmt::Display,
@@ -11,7 +11,7 @@ pub mod compute;
 
 pub type GraphType = StableGraph<Node, Edge>;
 
-#[derive(Default)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Module {
     pub name: String,
     pub outputs: Vec<String>,
