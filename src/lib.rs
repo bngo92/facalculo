@@ -32,7 +32,7 @@ impl Module {
         recipes: &HashMap<&str, RecipeRate>,
         key: &str,
         expand: bool,
-        imports: &[&str],
+        imports: &[String],
     ) {
         self.outputs.push(key.to_owned());
         self.add_node(recipes, key, expand, imports);
@@ -43,14 +43,14 @@ impl Module {
         recipes: &HashMap<&str, RecipeRate>,
         key: &str,
         expand: bool,
-        imports: &[&str],
+        imports: &[String],
     ) {
         let mut edges = Vec::new();
         if expand {
             if let Some(recipe) = recipes.get(key) {
                 for edge in &recipe.ingredients {
                     let edge = &edge.name;
-                    if !imports.contains(&edge.as_str()) {
+                    if !imports.contains(edge) {
                         self.add_node(recipes, edge, expand, imports);
                         edges.push(edge.clone());
                     }

@@ -89,7 +89,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 );
                 return Ok(());
             }
-            let imports: Vec<_> = import.iter().map(String::as_str).collect();
+            let mut imports = Vec::new();
+            for import in import {
+                if recipe_rates.contains_key(import.as_str()) {
+                    imports.push(import);
+                } else {
+                    let module: Module = serde_json::from_slice::<Module>(&fs::read(import)?)?;
+                    imports.extend(module.outputs);
+                }
+            }
             let mut modules = Vec::new();
             let mut required = HashMap::new();
             for item in items {
