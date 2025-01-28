@@ -13,10 +13,6 @@ use std::{collections::HashMap, process::Command, str::FromStr};
 #[derive(Parser, Debug)]
 #[command()]
 struct Args {
-    #[arg(short, long, num_args = 1..=2)]
-    items: Vec<Vec<String>>,
-    #[arg(short, long)]
-    rate: Option<Decimal>,
     #[arg(long)]
     render: bool,
     #[arg(long)]
@@ -43,7 +39,10 @@ enum Belt {
 #[derive(Debug, Subcommand)]
 enum Commands {
     Generate {
-        item: Vec<String>,
+        #[arg(short, long, num_args = 1..=2)]
+        item: Vec<Vec<String>>,
+        #[arg(short, long)]
+        rate: Option<Decimal>,
         #[arg(long)]
         expand: bool,
         #[arg(long)]
@@ -54,53 +53,58 @@ enum Commands {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let b = include_bytes!("space-age-2.0.11.json");
-    if args.debug {
-        let data: Value = serde_json::from_slice(b)?;
-        println!(
-            "{:?}",
-            data["recipes"]
-                .as_array()
-                .expect("recipes should be an array")
-                .iter()
-                .find(|r| r["key"] == args.items[0][0])
-                .ok_or(format!("{} was not found", args.items[0][0]))?
-        );
-        return Ok(());
-    }
     let data: Data = serde_json::from_slice(b)?;
     let recipe_rates = calculate_rates(&data, args.asm);
     let belt = args.belt.map(|b| b as i64);
     if let Some(Commands::Generate {
-        item,
+        item: items,
         expand,
         import,
+        rate,
     }) = args.command
     {
-        let mut iter = item.iter();
-        let name = iter.next().unwrap();
-        let recipe = get_recipe(&recipe_rates, name)?;
-        let required = if let Some(rate) = iter.next() {
-            rate.parse()?
-        } else if let Some(rate) = args.rate {
-            rate
-        } else {
-            let rate = recipe.results[0].rate;
-            eprintln!(
-                "Using {} for {name} (1 assembler)",
-                facalculo::round_string(rate)
+        if args.debug {
+            let data: Value = serde_json::from_slice(b)?;
+            println!(
+                "{:?}",
+                data["recipes"]
+                    .as_array()
+                    .expect("recipes should be an array")
+                    .iter()
+                    .find(|r| r["key"] == items[0][0])
+                    .ok_or(format!("{} was not found", items[0][0]))?
             );
-            rate
-        };
+            return Ok(());
+        }
         let imports: Vec<_> = import.iter().map(String::as_str).collect();
-        let mut m = Module::default();
-        m.add(&recipe_rates, name, expand, &imports);
-        let graph = Graph::from_module(
-            m,
-            HashMap::from_iter([(name.clone(), required)]),
-            &recipe_rates,
-            belt,
-        );
-        let out = compute::render(&graph)?;
+        let mut modules = Vec::new();
+        let mut required = HashMap::new();
+        for item in items {
+            let mut iter = item.iter();
+            let name = iter.next().unwrap();
+            let mut module = Module::new(name.to_owned());
+            module.add(&recipe_rates, name, expand, &imports);
+            modules.push(module);
+            let recipe = get_recipe(&recipe_rates, name)?;
+            let r = if let Some(rate) = iter.next() {
+                rate.parse()?
+            } else if let Some(rate) = rate {
+                rate
+            } else {
+                let rate = recipe.results[0].rate;
+                eprintln!(
+                    "Using {} for {name} (1 assembler)",
+                    facalculo::round_string(rate)
+                );
+                rate
+            };
+            required.insert(name.clone(), r);
+        }
+        let graphs: Vec<_> = modules
+            .into_iter()
+            .map(|m| Graph::from_module(m, &required, &recipe_rates, belt))
+            .collect();
+        let out = compute::render(&graphs)?;
         if args.render {
             let g = parse(&out)?;
             exec(
@@ -114,7 +118,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Command::new("open").arg("out.svg").spawn()?;
         }
         if args.total {
-            for (key, required) in compute::total(&graph) {
+            for (key, required) in compute::total(&graphs) {
                 println!(
                     "{} {key}/s{}",
                     facalculo::round_string(required),

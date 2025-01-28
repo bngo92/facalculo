@@ -13,11 +13,20 @@ pub type GraphType = StableGraph<Node, Edge>;
 
 #[derive(Default)]
 pub struct Module {
+    pub name: String,
     pub outputs: Vec<String>,
     pub nodes: HashMap<String, Vec<String>>,
 }
 
 impl Module {
+    pub fn new(name: String) -> Module {
+        Module {
+            name,
+            outputs: Vec::new(),
+            nodes: HashMap::new(),
+        }
+    }
+
     pub fn add(
         &mut self,
         recipes: &HashMap<&str, RecipeRate>,
@@ -53,6 +62,7 @@ impl Module {
 }
 
 pub struct Graph<'a> {
+    pub name: String,
     pub graph: GraphType,
     recipes: &'a HashMap<&'a str, RecipeRate<'a>>,
     pub imports: HashMap<String, Vec<(NodeIndex, Decimal)>>,
@@ -61,6 +71,7 @@ pub struct Graph<'a> {
 impl<'a> Graph<'a> {
     pub fn new(recipes: &'a HashMap<&'a str, RecipeRate<'a>>) -> Graph<'a> {
         Graph {
+            name: String::new(),
             graph: GraphType::new(),
             recipes,
             imports: HashMap::new(),
@@ -69,14 +80,15 @@ impl<'a> Graph<'a> {
 
     pub fn from_module(
         module: Module,
-        required: HashMap<String, Decimal>,
+        required: &HashMap<String, Decimal>,
         recipes: &'a HashMap<&'a str, RecipeRate<'a>>,
         belt: Option<i64>,
-    ) -> Graph {
+    ) -> Graph<'a> {
         let mut graph = Graph::new(recipes);
-        for (item, required) in required {
+        graph.name = module.name.clone();
+        for item in &module.outputs {
             if let Some(recipe) = recipes.get(item.as_str()) {
-                graph.build_module_node(&module, required, recipe, belt);
+                graph.build_module_node(&module, required[item], recipe, belt);
             }
         }
         graph

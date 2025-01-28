@@ -8,13 +8,17 @@ use std::{collections::HashMap, fmt::Write};
 
 static INDENT: &str = "    ";
 
-pub fn render(graph: &Graph) -> Result<String, Box<dyn std::error::Error>> {
+pub fn render(graphs: &[Graph]) -> Result<String, Box<dyn std::error::Error>> {
     let mut f = String::new();
     writeln!(f, "digraph {{")?;
     writeln!(f, "{INDENT}newrank=true")?;
     writeln!(f, "{INDENT}0 [label = \"outputs\"]")?;
     writeln!(f, "{INDENT}1 [label = \"inputs\"]")?;
-    render_module(&mut f, graph, INDENT)?;
+    // Offset for output and input nodes
+    let mut index = 2;
+    for graph in graphs {
+        index += render_module(&mut f, graph, INDENT, index)?;
+    }
     writeln!(f, "}}")?;
     Ok(f)
 }
@@ -23,21 +27,25 @@ fn render_module(
     f: &mut impl Write,
     graph: &Graph,
     indent: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
+    index: usize,
+) -> Result<usize, Box<dyn std::error::Error>> {
     let g = &graph.graph;
-    writeln!(f, "{indent}subgraph cluster {{")?;
+    writeln!(
+        f,
+        "{indent}subgraph cluster_{} {{",
+        graph.name.replace('-', "_")
+    )?;
     writeln!(f, "{indent}{INDENT}node [shape=record]")?;
     for node in g.node_references() {
         writeln!(
             f,
             "{indent}{}{} [label = \"{}\"]",
             INDENT,
-            g.to_index(node.id()) + 2,
+            g.to_index(node.id()) + index,
             node.weight()
         )?;
     }
     writeln!(f, "{indent}}}")?;
-    // Render inputs and outputs outside of the subgraph
     for node in g.externals(Direction::Incoming) {
         let mut node_obj = g[node].clone();
         *node_obj.required.as_mut().unwrap() *=
@@ -45,7 +53,7 @@ fn render_module(
         writeln!(
             f,
             "{indent}0 -> {} [label = \"{}\" dir=back]",
-            node.index() + 2,
+            node.index() + index,
             node_obj.trim()
         )?;
     }
@@ -62,7 +70,7 @@ fn render_module(
             writeln!(
                 f,
                 "{indent}{} -> 1 [label = \"{}\" dir=back]",
-                node.index() + 2,
+                node.index() + index,
                 node_obj.trim()
             )?;
         } else {
@@ -71,7 +79,7 @@ fn render_module(
                     writeln!(
                         f,
                         "{indent}{} -> 1 [label = \"{}\" dir=back]",
-                        node.index() + 2,
+                        node.index() + index,
                         edge
                     )?;
                 }
@@ -83,7 +91,7 @@ fn render_module(
             writeln!(
                 f,
                 "{indent}{} -> 1 [label = \"{} {}\" dir=back]",
-                g.to_index(*node) + 2,
+                g.to_index(*node) + index,
                 crate::round_string(*required),
                 crate::trim(import)
             )?;
@@ -93,23 +101,25 @@ fn render_module(
         writeln!(
             f,
             "{indent}{} -> {} [label = \"{}\" dir=back]",
-            g.to_index(edge.source()) + 2,
-            g.to_index(edge.target()) + 2,
+            g.to_index(edge.source()) + index,
+            g.to_index(edge.target()) + index,
             edge.weight()
         )?;
     }
-    Ok(())
+    Ok(g.node_count())
 }
 
-pub fn total<'a>(graph: &'a Graph) -> HashMap<&'a str, Decimal> {
-    let Graph { graph, recipes, .. } = graph;
-    let mut dfs = Dfs::new(graph, graph.externals(Direction::Incoming).next().unwrap());
+pub fn total<'a>(graphs: &'a [Graph]) -> HashMap<&'a str, Decimal> {
     let mut total = HashMap::new();
-    while let Some(nx) = dfs.next(&graph) {
-        if let Some(recipe) = recipes.get(graph[nx].name.as_str()) {
-            let ratio = graph[nx].required.unwrap() / recipe.results[0].rate;
-            for i in &recipe.ingredients {
-                *total.entry(i.name.as_str()).or_insert(Decimal::ZERO) += ratio * i.rate;
+    for graph in graphs {
+        let Graph { graph, recipes, .. } = graph;
+        let mut dfs = Dfs::new(graph, graph.externals(Direction::Incoming).next().unwrap());
+        while let Some(nx) = dfs.next(&graph) {
+            if let Some(recipe) = recipes.get(graph[nx].name.as_str()) {
+                let ratio = graph[nx].required.unwrap() / recipe.results[0].rate;
+                for i in &recipe.ingredients {
+                    *total.entry(i.name.as_str()).or_insert(Decimal::ZERO) += ratio * i.rate;
+                }
             }
         }
     }
