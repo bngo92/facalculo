@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand, ValueEnum};
-use facalculo::{compute, Category, Graph, IngredientRate, Module, RecipeRate};
+use facalculo::{compute, Category, Graph, IngredientRate, Module, ModuleBuilder, RecipeRate};
 use graphviz_rust::{
     cmd::{CommandArg, Format},
     exec, parse,
@@ -103,9 +103,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             for item in items {
                 let mut iter = item.iter();
                 let name = iter.next().unwrap();
-                let mut module = Module::new(name.to_owned());
-                module.add(&recipe_rates, name, expand, &imports);
-                modules.push(module);
+                let mut module = ModuleBuilder::new(name.to_owned(), &recipe_rates, &imports);
+                module.add(name, expand);
+                modules.push(module.build());
                 let recipe = get_recipe(&recipe_rates, name)?;
                 let r = if let Some(rate) = iter.next() {
                     rate.parse()?

@@ -3,7 +3,7 @@ use petgraph::{algo, graph::NodeIndex, stable_graph::StableGraph, visit::EdgeRef
 use rust_decimal::Decimal;
 use serde_derive::{Deserialize, Serialize};
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     fmt::Display,
 };
 
@@ -11,54 +11,79 @@ pub mod compute;
 
 pub type GraphType = StableGraph<Node, Edge>;
 
-#[derive(Clone, Deserialize, Serialize)]
-pub struct Module {
-    pub name: String,
-    pub outputs: Vec<String>,
-    pub nodes: HashMap<String, Vec<String>>,
+pub struct ModuleBuilder<'a> {
+    name: String,
+    outputs: Vec<String>,
+    nodes: HashMap<String, Vec<String>>,
+    recipes: &'a HashMap<&'a str, RecipeRate<'a>>,
+    imports: &'a [String],
 }
 
-impl Module {
-    pub fn new(name: String) -> Module {
-        Module {
+impl<'a> ModuleBuilder<'_> {
+    pub fn new(
+        name: String,
+        recipes: &'a HashMap<&str, RecipeRate>,
+        imports: &'a [String],
+    ) -> ModuleBuilder<'a> {
+        ModuleBuilder {
             name,
             outputs: Vec::new(),
             nodes: HashMap::new(),
+            recipes,
+            imports,
         }
     }
 
-    pub fn add(
-        &mut self,
-        recipes: &HashMap<&str, RecipeRate>,
-        key: &str,
-        expand: bool,
-        imports: &[String],
-    ) {
+    pub fn add(&mut self, key: &str, expand: bool) {
         self.outputs.push(key.to_owned());
-        self.add_node(recipes, key, expand, imports);
+        self.add_node(key, expand);
     }
 
-    fn add_node(
-        &mut self,
-        recipes: &HashMap<&str, RecipeRate>,
-        key: &str,
-        expand: bool,
-        imports: &[String],
-    ) {
+    fn add_node(&mut self, key: &str, expand: bool) {
         let mut edges = Vec::new();
         if expand {
-            if let Some(recipe) = recipes.get(key) {
+            if let Some(recipe) = self.recipes.get(key) {
                 for edge in &recipe.ingredients {
                     let edge = &edge.name;
-                    if !imports.contains(edge) {
-                        self.add_node(recipes, edge, expand, imports);
-                        edges.push(edge.clone());
+                    if !self.imports.contains(edge) {
+                        self.add_node(edge, expand);
                     }
+                    edges.push(edge.clone());
                 }
             }
         }
         self.nodes.insert(key.to_owned(), edges);
     }
+
+    pub fn build(self) -> Module {
+        let mut inputs: HashMap<String, HashSet<String>> = HashMap::new();
+        for (item, dependencies) in &self.nodes {
+            if let Some(r) = self.recipes.get(item.as_str()) {
+                if let Category::Mining = r.category {
+                    inputs.entry(item.clone()).or_default().insert(item.clone());
+                }
+            }
+            for d in dependencies {
+                if !self.nodes.contains_key(d.as_str()) {
+                    inputs.entry(d.clone()).or_default().insert(item.clone());
+                }
+            }
+        }
+        Module {
+            name: self.name,
+            outputs: self.outputs,
+            nodes: self.nodes,
+            inputs,
+        }
+    }
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+pub struct Module {
+    pub name: String,
+    pub outputs: Vec<String>,
+    pub nodes: HashMap<String, Vec<String>>,
+    pub inputs: HashMap<String, HashSet<String>>,
 }
 
 pub struct Graph<'a> {
@@ -106,18 +131,16 @@ impl<'a> Graph<'a> {
             required: Some(ratio),
             name: recipe.key.to_owned(),
         });
-        if let Some(nodes) = module.nodes.get(recipe.key) {
-            for edge in self.get_ingredients(recipe, ratio, belt) {
-                if let Some(recipe) = self.recipes.get(edge.item.as_str()) {
-                    if nodes.contains(&edge.item) {
-                        let n = self.build_module_node(module, edge.required, recipe, belt);
-                        self.graph.add_edge(node, n, edge);
-                    } else {
-                        self.imports
-                            .entry(edge.item.to_owned())
-                            .or_default()
-                            .push((node, edge.required));
-                    }
+        for edge in self.get_ingredients(recipe, ratio, belt) {
+            if let Some(recipe) = self.recipes.get(edge.item.as_str()) {
+                if module.nodes.contains_key(&edge.item) {
+                    let n = self.build_module_node(module, edge.required, recipe, belt);
+                    self.graph.add_edge(node, n, edge);
+                } else {
+                    self.imports
+                        .entry(edge.item.to_owned())
+                        .or_default()
+                        .push((node, edge.required));
                 }
             }
         }
