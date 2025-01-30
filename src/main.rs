@@ -386,13 +386,16 @@ mod tests {
         let b = include_bytes!("space-age-2.0.11.json");
         let data: Data = serde_json::from_slice(b).unwrap();
         let recipe_rates = calculate_rates(&data, 1);
-        let mut graph = Graph::new(&recipe_rates);
-        graph.add(
-            recipe_rates["advanced-circuit"].results[0].rate,
-            "advanced-circuit",
+        let mut builder = ModuleBuilder::new(String::new(), &recipe_rates, &[]);
+        builder.add("advanced-circuit", true);
+        let graph = Graph::from_module(
+            builder.build(),
+            &HashMap::from_iter([(
+                "advanced-circuit".to_owned(),
+                recipe_rates["advanced-circuit"].results[0].rate,
+            )]),
+            &recipe_rates,
             None,
-            true,
-            &[],
         );
         let graph = graph.graph;
         let mut nodes: Vec<_> = graph.node_weights().collect();
@@ -463,13 +466,16 @@ mod tests {
         let b = include_bytes!("space-age-2.0.11.json");
         let data: Data = serde_json::from_slice(b).unwrap();
         let recipe_rates = calculate_rates(&data, 1);
-        let mut graph = Graph::new(&recipe_rates);
-        graph.add(
-            recipe_rates["advanced-circuit"].results[0].rate,
-            "advanced-circuit",
+        let mut builder = ModuleBuilder::new(String::new(), &recipe_rates, &[]);
+        builder.add("advanced-circuit", true);
+        let mut graph = Graph::from_module(
+            builder.build(),
+            &HashMap::from_iter([(
+                "advanced-circuit".to_owned(),
+                recipe_rates["advanced-circuit"].results[0].rate,
+            )]),
+            &recipe_rates,
             None,
-            true,
-            &[],
         );
         graph.group_nodes(Vec::new());
         let graph = graph.graph;
@@ -536,13 +542,16 @@ mod tests {
         let b = include_bytes!("space-age-2.0.11.json");
         let data: Data = serde_json::from_slice(b).unwrap();
         let recipe_rates = calculate_rates(&data, 1);
-        let mut graph = Graph::new(&recipe_rates);
-        graph.add(
-            recipe_rates["advanced-circuit"].results[0].rate,
-            "advanced-circuit",
+        let mut builder = ModuleBuilder::new(String::new(), &recipe_rates, &[]);
+        builder.add("advanced-circuit", true);
+        let mut graph = Graph::from_module(
+            builder.build(),
+            &HashMap::from_iter([(
+                "advanced-circuit".to_owned(),
+                recipe_rates["advanced-circuit"].results[0].rate,
+            )]),
+            &recipe_rates,
             None,
-            true,
-            &[],
         );
         graph.group_nodes(vec![String::from("copper-plate")]);
         let graph = graph.graph;
