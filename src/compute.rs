@@ -4,11 +4,18 @@ use petgraph::{
     Direction,
 };
 use rust_decimal::Decimal;
-use std::{collections::HashMap, fmt::Write};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Write,
+};
 
 static INDENT: &str = "    ";
 
-pub fn render(graphs: &[Graph]) -> Result<String, Box<dyn std::error::Error>> {
+pub fn render(
+    graphs: &[Graph],
+    imports: &HashMap<String, Vec<(usize, Decimal)>>,
+    used_imports: &HashSet<String>,
+) -> Result<String, Box<dyn std::error::Error>> {
     let mut f = String::new();
     writeln!(f, "digraph {{")?;
     writeln!(f, "{INDENT}newrank=true")?;
@@ -17,7 +24,7 @@ pub fn render(graphs: &[Graph]) -> Result<String, Box<dyn std::error::Error>> {
     // Offset for output and input nodes
     let mut index = 2;
     for graph in graphs {
-        index += render_module(&mut f, graph, INDENT, index)?;
+        index += render_module(&mut f, graph, INDENT, index, imports, used_imports)?;
     }
     writeln!(f, "}}")?;
     Ok(f)
@@ -28,6 +35,8 @@ fn render_module(
     graph: &Graph,
     indent: &str,
     index: usize,
+    imports: &HashMap<String, Vec<(usize, Decimal)>>,
+    used_imports: &HashSet<String>,
 ) -> Result<usize, Box<dyn std::error::Error>> {
     let g = &graph.graph;
     writeln!(
@@ -48,14 +57,30 @@ fn render_module(
     writeln!(f, "{indent}}}")?;
     for node in g.externals(Direction::Incoming) {
         let mut node_obj = g[node].clone();
-        *node_obj.required.as_mut().unwrap() *=
-            graph.recipes[node_obj.name.as_str()].results[0].rate;
-        writeln!(
-            f,
-            "{indent}0 -> {} [label = \"{}\" dir=back]",
-            node.index() + index,
-            node_obj.trim()
-        )?;
+        if let Some(dependencies) = imports.get(&node_obj.name) {
+            for &(import, required) in dependencies {
+                writeln!(
+                    f,
+                    "{indent}{} -> {} [label = \"{}\" dir=back]",
+                    import,
+                    node.index() + index,
+                    crate::Edge {
+                        item: node_obj.name.clone(),
+                        required,
+                        belt: None
+                    }
+                )?;
+            }
+        } else {
+            *node_obj.required.as_mut().unwrap() *=
+                graph.recipes[node_obj.name.as_str()].results[0].rate;
+            writeln!(
+                f,
+                "{indent}0 -> {} [label = \"{}\" dir=back]",
+                node.index() + index,
+                node_obj.trim()
+            )?;
+        }
     }
     for node in g.externals(Direction::Outgoing) {
         let edges = graph.get_ingredients(
@@ -75,7 +100,7 @@ fn render_module(
             )?;
         } else {
             for edge in edges {
-                if !graph.imports.contains_key(&edge.item) {
+                if !used_imports.contains(&edge.item) {
                     writeln!(
                         f,
                         "{indent}{} -> 1 [label = \"{}\" dir=back]",
@@ -84,17 +109,6 @@ fn render_module(
                     )?;
                 }
             }
-        }
-    }
-    for (import, nodes) in &graph.imports {
-        for (node, required) in nodes {
-            writeln!(
-                f,
-                "{indent}{} -> 1 [label = \"{} {}\" dir=back]",
-                g.to_index(*node) + index,
-                crate::round_string(*required),
-                crate::trim(import)
-            )?;
         }
     }
     for edge in g.edge_references() {

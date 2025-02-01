@@ -90,30 +90,45 @@ pub struct Graph<'a> {
     pub name: String,
     pub graph: GraphType,
     recipes: &'a HashMap<&'a str, RecipeRate<'a>>,
-    pub imports: HashMap<String, Vec<(NodeIndex, Decimal)>>,
+    pub imports: HashMap<String, Vec<(usize, Decimal)>>,
+    index: usize,
 }
 
 impl<'a> Graph<'a> {
-    pub fn new(recipes: &'a HashMap<&'a str, RecipeRate<'a>>) -> Graph<'a> {
+    pub fn new(recipes: &'a HashMap<&'a str, RecipeRate<'a>>, index: usize) -> Graph<'a> {
         Graph {
             name: String::new(),
             graph: GraphType::new(),
             recipes,
             imports: HashMap::new(),
+            index,
         }
     }
 
     pub fn from_module(
         module: Module,
         required: &HashMap<String, Decimal>,
+        defaults: &HashMap<String, Result<Decimal, Decimal>>,
         recipes: &'a HashMap<&'a str, RecipeRate<'a>>,
         belt: Option<i64>,
+        index: usize,
     ) -> Graph<'a> {
-        let mut graph = Graph::new(recipes);
+        let mut graph = Graph::new(recipes, index);
         graph.name = module.name.clone();
         for item in &module.outputs {
             if let Some(recipe) = recipes.get(item.as_str()) {
-                graph.build_module_node(&module, required[item], recipe, belt);
+                graph.build_module_node(
+                    &module,
+                    *required.get(item).unwrap_or_else(|| match &defaults[item] {
+                        Ok(rate) => rate,
+                        Err(rate) => {
+                            eprintln!("Using {} for {item} (1 assembler)", round_string(*rate));
+                            rate
+                        }
+                    }),
+                    recipe,
+                    belt,
+                );
             }
         }
         graph
@@ -140,7 +155,7 @@ impl<'a> Graph<'a> {
                     self.imports
                         .entry(edge.item.to_owned())
                         .or_default()
-                        .push((node, edge.required));
+                        .push((self.index + node.index(), edge.required));
                 }
             }
         }

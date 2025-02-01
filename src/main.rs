@@ -5,6 +5,7 @@ use graphviz_rust::{
     exec, parse,
     printer::PrinterContext,
 };
+use petgraph::{prelude::GraphMap, Directed};
 use rust_decimal::Decimal;
 use serde_derive::Deserialize;
 use serde_json::Value;
@@ -106,27 +107,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut module = ModuleBuilder::new(name.to_owned(), &recipe_rates, &imports);
                 module.add(name, expand);
                 modules.push(module.build());
-                let recipe = get_recipe(&recipe_rates, name)?;
-                let r = if let Some(rate) = iter.next() {
-                    rate.parse()?
-                } else if let Some(rate) = rate {
-                    rate
-                } else {
-                    let rate = recipe.results[0].rate;
-                    eprintln!(
-                        "Using {} for {name} (1 assembler)",
-                        facalculo::round_string(rate)
-                    );
-                    rate
-                };
-                required.insert(name.clone(), r);
+                get_recipe(&recipe_rates, name)?;
+                if let Some(rate) = iter.next() {
+                    required.insert(name.clone(), rate.parse()?);
+                }
             }
+            let defaults = recipe_rates
+                .iter()
+                .map(|(k, r)| {
+                    (
+                        (*k).to_owned(),
+                        if let Some(rate) = rate {
+                            Ok(rate)
+                        } else {
+                            Err(r.results[0].rate)
+                        },
+                    )
+                })
+                .collect();
             let graphs: Vec<_> = modules
                 .iter()
                 .cloned()
-                .map(|m| Graph::from_module(m, &required, &recipe_rates, belt))
+                .map(|m| Graph::from_module(m, &required, &defaults, &recipe_rates, belt, 0))
                 .collect();
-            let out = compute::render(&graphs)?;
+            let out = compute::render(&graphs, &HashMap::new(), &HashSet::new())?;
             if args.render {
                 let g = parse(&out)?;
                 exec(
@@ -168,11 +172,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }) => {
             let modules = files
                 .into_iter()
-                .map(|f| -> Result<Module, Box<dyn std::error::Error>> {
-                    Ok(serde_json::from_slice::<Module>(&fs::read(f)?)?)
-                })
+                .map(
+                    |f| -> Result<(String, Module), Box<dyn std::error::Error>> {
+                        let module: Module = serde_json::from_slice(&fs::read(f)?)?;
+                        Ok((module.name.clone(), module))
+                    },
+                )
                 .collect::<Result<Vec<_>, _>>()?;
-            let outputs: HashSet<_> = modules.iter().flat_map(|m| m.outputs.clone()).collect();
+            let modules: HashMap<_, _> = modules.into_iter().collect();
+            let outputs: HashSet<_> = modules.values().flat_map(|m| m.outputs.clone()).collect();
             let rates = items
                 .into_iter()
                 .map(|items| {
@@ -184,26 +192,61 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 })
                 .collect::<Result<HashMap<_, Decimal>, Box<dyn std::error::Error>>>()?;
             let mut required = HashMap::new();
-            for o in outputs {
-                let rate = if let Some(rate) = rates.get(&o) {
-                    *rate
-                } else if let Some(rate) = rate {
-                    rate
-                } else {
-                    let rate = recipe_rates[o.as_str()].results[0].rate;
-                    eprintln!(
-                        "Using {} for {o} (1 assembler)",
-                        facalculo::round_string(rate)
-                    );
-                    rate
-                };
-                required.insert(o, rate);
-            }
-            let graphs: Vec<_> = modules
-                .into_iter()
-                .map(|m| Graph::from_module(m, &required, &recipe_rates, belt))
+            let defaults = recipe_rates
+                .iter()
+                .map(|(k, r)| {
+                    (
+                        (*k).to_owned(),
+                        if let Some(rate) = rate {
+                            Ok(rate)
+                        } else {
+                            Err(r.results[0].rate)
+                        },
+                    )
+                })
                 .collect();
-            let out = compute::render(&graphs)?;
+            for o in outputs {
+                if let Some(rate) = rates.get(&o) {
+                    required.insert(o.clone(), *rate);
+                }
+            }
+            let mut graph = GraphMap::<&str, (), Directed>::new();
+            for (node, module) in &modules {
+                for input in module.inputs.keys() {
+                    if node != input {
+                        graph.add_edge(node, input, ());
+                    }
+                }
+            }
+
+            // Sort modules so outputs are processed before inputs
+            let mut index = 2;
+            let mut imports: HashMap<String, Vec<(usize, Decimal)>> = HashMap::new();
+            let mut graphs = Vec::new();
+            let mut used_imports = HashSet::new();
+            for module in petgraph::algo::toposort(&graph, None).unwrap() {
+                let graph = Graph::from_module(
+                    modules[module].clone(),
+                    &required,
+                    &defaults,
+                    &recipe_rates,
+                    belt,
+                    index,
+                );
+                for (import, dependencies) in &graph.imports {
+                    for (_, rate) in dependencies {
+                        *required.entry(import.clone()).or_default() += rate;
+                    }
+                    imports
+                        .entry(import.clone())
+                        .or_default()
+                        .extend(dependencies);
+                    used_imports.insert(import.clone());
+                }
+                index += graph.graph.node_count();
+                graphs.push(graph);
+            }
+            let out = compute::render(&graphs, &imports, &used_imports)?;
             let g = parse(&out)?;
             exec(
                 g,
@@ -394,8 +437,10 @@ mod tests {
                 "advanced-circuit".to_owned(),
                 recipe_rates["advanced-circuit"].results[0].rate,
             )]),
+            &HashMap::new(),
             &recipe_rates,
             None,
+            0,
         );
         let graph = graph.graph;
         let mut nodes: Vec<_> = graph.node_weights().collect();
@@ -474,8 +519,10 @@ mod tests {
                 "advanced-circuit".to_owned(),
                 recipe_rates["advanced-circuit"].results[0].rate,
             )]),
+            &HashMap::new(),
             &recipe_rates,
             None,
+            0,
         );
         graph.group_nodes(Vec::new());
         let graph = graph.graph;
@@ -550,8 +597,10 @@ mod tests {
                 "advanced-circuit".to_owned(),
                 recipe_rates["advanced-circuit"].results[0].rate,
             )]),
+            &HashMap::new(),
             &recipe_rates,
             None,
+            0,
         );
         graph.group_nodes(vec![String::from("copper-plate")]);
         let graph = graph.graph;
