@@ -408,6 +408,7 @@ pub enum Category {
     Recycling,
     RecyclingOrHandCrafting,
     Smelting,
+    Parameters,
     // Added category
     Mining,
 }

@@ -65,7 +65,7 @@ enum Commands {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let b = include_bytes!("space-age-2.0.11.json");
+    let b = include_bytes!("data-raw-dump.json");
     let data: Data = serde_json::from_slice(b)?;
     let recipe_rates = calculate_rates(&data, args.asm);
     let belt = args.belt.map(|b| b as i64);
@@ -285,20 +285,17 @@ fn get_recipe<'a>(
 
 #[derive(Debug, Deserialize)]
 struct Data<'a> {
+    recipe: HashMap<&'a str, Recipe>,
     #[serde(borrow)]
-    recipes: Vec<Recipe<'a>>,
-    #[serde(borrow)]
-    resources: Vec<Resource<'a>>,
+    resource: HashMap<&'a str, Resource>,
 }
 
 #[derive(Debug, Deserialize)]
-struct Recipe<'a> {
-    category: Category,
-    #[serde(borrow)]
-    key: &'a str,
-    energy_required: Decimal,
-    ingredients: Vec<Ingredient>,
-    results: Vec<RecipeResult>,
+struct Recipe {
+    category: Option<Category>,
+    energy_required: Option<Decimal>,
+    ingredients: Option<Value>,
+    results: Option<Value>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -314,54 +311,70 @@ struct RecipeResult {
 }
 
 #[derive(Debug, Deserialize)]
-struct Resource<'a> {
-    #[serde(borrow)]
-    key: &'a str,
+struct Resource {
+    minable: Mineable,
+}
+
+#[derive(Debug, Deserialize)]
+struct Mineable {
     mining_time: Decimal,
 }
 
 fn calculate_rates<'a>(data: &'a Data<'a>, asm: i64) -> HashMap<&str, RecipeRate<'a>> {
     let mut recipe_rates: HashMap<_, _> = data
-        .recipes
+        .recipe
         .iter()
-        .map(|r| {
+        .filter_map(|(key, r)| {
+            let (
+                Some(category),
+                Some(energy_required),
+                Some(Value::Array(ingredients)),
+                Some(Value::Array(results)),
+            ) = (r.category, r.energy_required, &r.ingredients, &r.results)
+            else {
+                return None;
+            };
             let speed = match r.category {
-                Category::Crafting
-                | Category::CraftingWithFluid
-                | Category::Electronics
-                | Category::ElectronicsWithFluid
-                | Category::Pressing => match asm {
+                Some(Category::Crafting)
+                | Some(Category::CraftingWithFluid)
+                | Some(Category::Electronics)
+                | Some(Category::ElectronicsWithFluid)
+                | Some(Category::Pressing) => match asm {
                     1 => Decimal::from_str("0.5").unwrap(),
                     2 => Decimal::from_str("0.75").unwrap(),
                     3 => Decimal::from_str("1.25").unwrap(),
                     _ => unimplemented!(),
                 },
-                Category::Smelting => Decimal::new(2, 0),
+                Some(Category::Smelting) => Decimal::new(2, 0),
                 _ => Decimal::ONE,
             };
             let rate = RecipeRate {
-                category: r.category,
-                key: r.key,
-                ingredients: r
-                    .ingredients
+                category,
+                key,
+                ingredients: ingredients
                     .iter()
                     .cloned()
-                    .map(|i| IngredientRate {
-                        rate: i.amount / r.energy_required * speed,
-                        name: i.name,
+                    .filter_map(|i| {
+                        let i: Ingredient = serde_json::from_value(i).ok()?;
+                        Some(IngredientRate {
+                            rate: i.amount / energy_required * speed,
+                            name: i.name,
+                        })
                     })
                     .collect(),
-                results: r
-                    .results
+                results: results
                     .iter()
                     .cloned()
-                    .map(|i| IngredientRate {
-                        rate: i.amount / r.energy_required * speed,
-                        name: i.name,
+                    .filter_map(|i| {
+                        let i: RecipeResult = serde_json::from_value(i).ok()?;
+                        Some(IngredientRate {
+                            rate: i.amount / energy_required * speed,
+                            name: i.name,
+                        })
                     })
                     .collect(),
             };
-            (r.key, rate)
+            Some((*key, rate))
         })
         .collect();
     // Add oil recipes
@@ -393,17 +406,17 @@ fn calculate_rates<'a>(data: &'a Data<'a>, asm: i64) -> HashMap<&str, RecipeRate
         );
     }
     // Add mining recipes
-    for resource in &data.resources {
+    for (key, resource) in &data.resource {
         let rate = RecipeRate {
             category: Category::Mining,
-            key: resource.key,
+            key,
             ingredients: Vec::new(),
             results: vec![IngredientRate {
-                rate: resource.mining_time * Decimal::from_str("0.5").unwrap(),
-                name: resource.key.to_owned(),
+                rate: resource.minable.mining_time * Decimal::from_str("0.5").unwrap(),
+                name: (*key).to_owned(),
             }],
         };
-        recipe_rates.insert(resource.key, rate);
+        recipe_rates.insert(*key, rate);
     }
     // Add water pumping
     recipe_rates.insert(
@@ -427,7 +440,7 @@ mod tests {
 
     #[test]
     fn advanced_circuit() {
-        let b = include_bytes!("space-age-2.0.11.json");
+        let b = include_bytes!("data-raw-dump.json");
         let data: Data = serde_json::from_slice(b).unwrap();
         let recipe_rates = calculate_rates(&data, 1);
         let mut builder = ModuleBuilder::new(String::new(), &recipe_rates, &[]);
@@ -509,7 +522,7 @@ mod tests {
 
     #[test]
     fn group_all_advanced_circuit() {
-        let b = include_bytes!("space-age-2.0.11.json");
+        let b = include_bytes!("data-raw-dump.json");
         let data: Data = serde_json::from_slice(b).unwrap();
         let recipe_rates = calculate_rates(&data, 1);
         let mut builder = ModuleBuilder::new(String::new(), &recipe_rates, &[]);
@@ -587,7 +600,7 @@ mod tests {
 
     #[test]
     fn group_advanced_circuit() {
-        let b = include_bytes!("space-age-2.0.11.json");
+        let b = include_bytes!("data-raw-dump.json");
         let data: Data = serde_json::from_slice(b).unwrap();
         let recipe_rates = calculate_rates(&data, 1);
         let mut builder = ModuleBuilder::new(String::new(), &recipe_rates, &[]);
