@@ -1,0 +1,34 @@
+{
+  "name": "logistic-science-pack",
+  "outputs": [
+    "logistic-science-pack"
+  ],
+  "nodes": {
+    "transport-belt": [
+      "iron-plate",
+      "iron-gear-wheel"
+    ],
+    "iron-gear-wheel": [
+      "iron-plate"
+    ],
+    "logistic-science-pack": [
+      "inserter",
+      "transport-belt"
+    ],
+    "inserter": [
+      "electronic-circuit",
+      "iron-gear-wheel",
+      "iron-plate"
+    ]
+  },
+  "inputs": {
+    "electronic-circuit": [
+      "inserter"
+    ],
+    "iron-plate": [
+      "inserter",
+      "iron-gear-wheel",
+      "transport-belt"
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "automation-science-pack",
+  "outputs": [
+    "automation-science-pack"
+  ],
+  "nodes": {
+    "iron-gear-wheel": [
+      "iron-plate"
+    ],
+    "automation-science-pack": [
+      "copper-plate",
+      "iron-gear-wheel"
+    ]
+  },
+  "inputs": {
+    "iron-plate": [
+      "iron-gear-wheel"
+    ],
+    "copper-plate": [
+      "automation-science-pack"
+    ]
+  }
+}

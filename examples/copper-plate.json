@@ -1,0 +1,16 @@
+{
+  "name": "copper-plate",
+  "outputs": [
+    "copper-plate"
+  ],
+  "nodes": {
+    "copper-plate": [
+      "copper-ore"
+    ]
+  },
+  "inputs": {
+    "copper-ore": [
+      "copper-plate"
+    ]
+  }
+}

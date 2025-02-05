@@ -1,0 +1,14 @@
+{
+  "name": "iron-ore",
+  "outputs": [
+    "iron-ore"
+  ],
+  "nodes": {
+    "iron-ore": []
+  },
+  "inputs": {
+    "iron-ore": [
+      "iron-ore"
+    ]
+  }
+}

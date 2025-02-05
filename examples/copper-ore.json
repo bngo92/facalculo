@@ -1,0 +1,14 @@
+{
+  "name": "copper-ore",
+  "outputs": [
+    "copper-ore"
+  ],
+  "nodes": {
+    "copper-ore": []
+  },
+  "inputs": {
+    "copper-ore": [
+      "copper-ore"
+    ]
+  }
+}

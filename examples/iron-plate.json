@@ -1,0 +1,16 @@
+{
+  "name": "iron-plate",
+  "outputs": [
+    "iron-plate"
+  ],
+  "nodes": {
+    "iron-plate": [
+      "iron-ore"
+    ]
+  },
+  "inputs": {
+    "iron-ore": [
+      "iron-plate"
+    ]
+  }
+}
