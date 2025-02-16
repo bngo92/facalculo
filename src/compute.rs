@@ -73,7 +73,7 @@ fn render_module(
             }
         } else {
             *node_obj.required.as_mut().unwrap() *=
-                graph.recipes[node_obj.name.as_str()].results[0].rate;
+                graph.recipes.get(node_obj.name.as_str()).unwrap().results[0].rate;
             writeln!(
                 f,
                 "{indent}0 -> {} [label = \"{}\" dir=back]",
@@ -84,14 +84,14 @@ fn render_module(
     }
     for node in g.externals(Direction::Outgoing) {
         let edges = graph.get_ingredients(
-            &graph.recipes[g[node].name.as_str()],
+            graph.recipes.get(g[node].name.as_str()).unwrap(),
             g[node].required.unwrap(),
             None,
         );
         if edges.is_empty() {
             let mut node_obj = g[node].clone();
             *node_obj.required.as_mut().unwrap() *=
-                graph.recipes[node_obj.name.as_str()].results[0].rate;
+                graph.recipes.get(node_obj.name.as_str()).unwrap().results[0].rate;
             writeln!(
                 f,
                 "{indent}{} -> 1 [label = \"{}\" dir=back]",

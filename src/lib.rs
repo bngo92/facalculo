@@ -15,14 +15,14 @@ pub struct ModuleBuilder<'a> {
     name: String,
     outputs: Vec<String>,
     nodes: HashMap<String, Vec<String>>,
-    recipes: &'a HashMap<&'a str, RecipeRate<'a>>,
+    recipes: &'a RecipeRepository,
     imports: &'a [String],
 }
 
 impl<'a> ModuleBuilder<'_> {
     pub fn new(
         name: String,
-        recipes: &'a HashMap<&str, RecipeRate>,
+        recipes: &'a RecipeRepository,
         imports: &'a [String],
     ) -> ModuleBuilder<'a> {
         ModuleBuilder {
@@ -42,7 +42,7 @@ impl<'a> ModuleBuilder<'_> {
     fn add_node(&mut self, key: &str, expand: bool) {
         let mut edges = Vec::new();
         if expand {
-            if let Some(recipe) = self.recipes.get(key) {
+            if let Some(recipe) = self.recipes.get(key).cloned() {
                 for edge in &recipe.ingredients {
                     let edge = &edge.name;
                     if !self.imports.contains(edge) {
@@ -89,13 +89,13 @@ pub struct Module {
 pub struct Graph<'a> {
     pub name: String,
     pub graph: GraphType,
-    recipes: &'a HashMap<&'a str, RecipeRate<'a>>,
+    recipes: &'a RecipeRepository,
     pub imports: HashMap<String, Vec<(usize, Decimal)>>,
     index: usize,
 }
 
 impl<'a> Graph<'a> {
-    pub fn new(recipes: &'a HashMap<&'a str, RecipeRate<'a>>, index: usize) -> Graph<'a> {
+    pub fn new(recipes: &'a RecipeRepository, index: usize) -> Graph<'a> {
         Graph {
             name: String::new(),
             graph: GraphType::new(),
@@ -109,7 +109,7 @@ impl<'a> Graph<'a> {
         module: Module,
         required: &HashMap<String, Decimal>,
         defaults: &HashMap<String, Result<Decimal, Decimal>>,
-        recipes: &'a HashMap<&'a str, RecipeRate<'a>>,
+        recipes: &'a RecipeRepository,
         belt: Option<i64>,
         index: usize,
     ) -> Graph<'a> {
@@ -162,12 +162,7 @@ impl<'a> Graph<'a> {
         node
     }
 
-    fn get_ingredients(
-        &self,
-        recipe: &RecipeRate<'_>,
-        ratio: Decimal,
-        belt: Option<i64>,
-    ) -> Vec<Edge> {
+    fn get_ingredients(&self, recipe: &RecipeRate, ratio: Decimal, belt: Option<i64>) -> Vec<Edge> {
         recipe
             .ingredients
             .iter()
@@ -354,14 +349,26 @@ fn trim(s: &str) -> String {
     )
 }
 
-pub struct RecipeRate<'a> {
+pub struct RecipeRepository {
+    pub recipes: HashMap<String, RecipeRate>,
+    pub recipe_outputs: HashMap<String, Vec<String>>,
+}
+
+impl RecipeRepository {
+    pub fn get(&self, key: &str) -> Option<&RecipeRate> {
+        self.recipes.get(key)
+    }
+}
+
+#[derive(Clone)]
+pub struct RecipeRate {
     pub category: Option<Category>,
-    pub key: &'a str,
+    pub key: String,
     pub ingredients: Vec<IngredientRate>,
     pub results: Vec<IngredientRate>,
 }
 
-impl Display for RecipeRate<'_> {
+impl Display for RecipeRate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,

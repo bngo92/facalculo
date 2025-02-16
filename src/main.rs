@@ -1,5 +1,7 @@
 use clap::{Parser, Subcommand, ValueEnum};
-use facalculo::{compute, Category, Graph, IngredientRate, Module, ModuleBuilder, RecipeRate};
+use facalculo::{
+    compute, Category, Graph, IngredientRate, Module, ModuleBuilder, RecipeRate, RecipeRepository,
+};
 use graphviz_rust::{
     cmd::{CommandArg, Format},
     exec, parse,
@@ -92,7 +94,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             let mut imports = Vec::new();
             for import in import {
-                if recipe_rates.contains_key(import.as_str()) {
+                if recipe_rates.get(import.as_str()).is_some() {
                     imports.push(import);
                 } else {
                     let module: Module = serde_json::from_slice::<Module>(&fs::read(import)?)?;
@@ -113,6 +115,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
             let defaults = recipe_rates
+                .recipes
                 .iter()
                 .map(|(k, r)| {
                     (
@@ -193,6 +196,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .collect::<Result<HashMap<_, Decimal>, Box<dyn std::error::Error>>>()?;
             let mut required = HashMap::new();
             let defaults = recipe_rates
+                .recipes
                 .iter()
                 .map(|(k, r)| {
                     (
@@ -262,15 +266,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn get_recipe<'a>(
-    recipes: &'a HashMap<&str, RecipeRate<'a>>,
-    name: &str,
-) -> Result<&'a RecipeRate<'a>, String> {
+fn get_recipe<'a>(recipes: &'a RecipeRepository, name: &str) -> Result<&'a RecipeRate, String> {
     if let Some(recipe) = recipes.get(name) {
         Ok(recipe)
     } else {
         let mut found = false;
-        for k in recipes.keys() {
+        for k in recipes.recipes.keys() {
             if k.contains(name) {
                 if !found {
                     found = true;
@@ -320,7 +321,7 @@ struct Mineable {
     mining_time: Decimal,
 }
 
-fn calculate_rates<'a>(data: &'a Data<'a>, asm: i64) -> HashMap<&str, RecipeRate<'a>> {
+fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
     let mut recipe_rates: HashMap<_, _> = data
         .recipe
         .iter()
@@ -350,7 +351,7 @@ fn calculate_rates<'a>(data: &'a Data<'a>, asm: i64) -> HashMap<&str, RecipeRate
             };
             let rate = RecipeRate {
                 category,
-                key,
+                key: (*key).to_owned(),
                 ingredients: ingredients
                     .iter()
                     .cloned()
@@ -374,28 +375,28 @@ fn calculate_rates<'a>(data: &'a Data<'a>, asm: i64) -> HashMap<&str, RecipeRate
                     })
                     .collect(),
             };
-            Some((*key, rate))
+            Some(((*key).to_owned(), rate))
         })
         .collect();
     // Add mining recipes
     for (key, resource) in &data.resource {
         let rate = RecipeRate {
             category: None,
-            key,
+            key: (*key).to_owned(),
             ingredients: Vec::new(),
             results: vec![IngredientRate {
                 rate: resource.minable.mining_time * Decimal::from_str("0.5").unwrap(),
                 name: (*key).to_owned(),
             }],
         };
-        recipe_rates.insert(*key, rate);
+        recipe_rates.insert((*key).to_owned(), rate);
     }
     // Add water pumping
     recipe_rates.insert(
-        "water",
+        "water".to_owned(),
         RecipeRate {
             category: None,
-            key: "water",
+            key: "water".to_owned(),
             ingredients: Vec::new(),
             results: vec![IngredientRate {
                 rate: Decimal::new(1200, 0),
@@ -403,7 +404,10 @@ fn calculate_rates<'a>(data: &'a Data<'a>, asm: i64) -> HashMap<&str, RecipeRate
             }],
         },
     );
-    recipe_rates
+    RecipeRepository {
+        recipes: recipe_rates,
+        recipe_outputs: HashMap::new(),
+    }
 }
 
 #[cfg(test)]
@@ -421,7 +425,7 @@ mod tests {
             builder.build(),
             &HashMap::from_iter([(
                 "advanced-circuit".to_owned(),
-                recipe_rates["advanced-circuit"].results[0].rate,
+                recipe_rates.get("advanced-circuit").unwrap().results[0].rate,
             )]),
             &HashMap::new(),
             &recipe_rates,
@@ -497,7 +501,7 @@ mod tests {
             builder.build(),
             &HashMap::from_iter([(
                 "advanced-circuit".to_owned(),
-                recipe_rates["advanced-circuit"].results[0].rate,
+                recipe_rates.get("advanced-circuit").unwrap().results[0].rate,
             )]),
             &HashMap::new(),
             &recipe_rates,
@@ -569,7 +573,12 @@ mod tests {
             builder.build(),
             &HashMap::from_iter([(
                 "advanced-circuit".to_owned(),
-                recipe_rates["advanced-circuit"].results[0].rate,
+                recipe_rates
+                    .recipes
+                    .get("advanced-circuit")
+                    .unwrap()
+                    .results[0]
+                    .rate,
             )]),
             &HashMap::new(),
             &recipe_rates,
