@@ -325,17 +325,17 @@ fn calculate_rates<'a>(data: &'a Data<'a>, asm: i64) -> HashMap<&str, RecipeRate
         .recipe
         .iter()
         .filter_map(|(key, r)| {
-            let (
-                Some(category),
-                Some(energy_required),
-                Some(Value::Array(ingredients)),
-                Some(Value::Array(results)),
-            ) = (r.category, r.energy_required, &r.ingredients, &r.results)
+            let energy_required = r
+                .energy_required
+                .unwrap_or(Decimal::from_str("0.5").unwrap());
+            let (category, Some(Value::Array(ingredients)), Some(Value::Array(results))) =
+                (r.category, &r.ingredients, &r.results)
             else {
                 return None;
             };
             let speed = match r.category {
-                Some(Category::Crafting)
+                None
+                | Some(Category::Crafting)
                 | Some(Category::CraftingWithFluid)
                 | Some(Category::Electronics)
                 | Some(Category::ElectronicsWithFluid)
@@ -380,7 +380,7 @@ fn calculate_rates<'a>(data: &'a Data<'a>, asm: i64) -> HashMap<&str, RecipeRate
     // Add mining recipes
     for (key, resource) in &data.resource {
         let rate = RecipeRate {
-            category: Category::Mining,
+            category: None,
             key,
             ingredients: Vec::new(),
             results: vec![IngredientRate {
@@ -394,7 +394,7 @@ fn calculate_rates<'a>(data: &'a Data<'a>, asm: i64) -> HashMap<&str, RecipeRate
     recipe_rates.insert(
         "water",
         RecipeRate {
-            category: Category::Mining,
+            category: None,
             key: "water",
             ingredients: Vec::new(),
             results: vec![IngredientRate {
@@ -434,7 +434,20 @@ mod tests {
         let nodes: Vec<_> = nodes.into_iter().map(ToString::to_string).collect();
         assert_eq!(
             nodes,
-            vec!["1 advanced-circuit", "0.167 coal", "0.083 plastic-bar",]
+            vec![
+                "1 advanced-circuit",
+                "0.167 coal",
+                "0.167 copper-cable",
+                "0.250 copper-cable",
+                "0.333 copper-ore",
+                "0.500 copper-ore",
+                "0.267 copper-plate",
+                "0.400 copper-plate",
+                "0.167 electronic-circuit",
+                "0.333 iron-ore",
+                "0.267 iron-plate",
+                "0.083 plastic-bar",
+            ]
         );
         let mut edges: Vec<_> = graph
             .edge_indices()
@@ -458,7 +471,16 @@ mod tests {
         assert_eq!(
             edges,
             vec![
+                "1 advanced-circuit -> 0.333 cc -> 0.167 copper-cable",
+                "1 advanced-circuit -> 0.167 ec -> 0.167 electronic-circuit",
                 "1 advanced-circuit -> 0.167 pb -> 0.083 plastic-bar",
+                "0.167 copper-cable -> 0.167 cp -> 0.267 copper-plate",
+                "0.250 copper-cable -> 0.250 cp -> 0.400 copper-plate",
+                "0.267 copper-plate -> 0.167 co -> 0.333 copper-ore",
+                "0.400 copper-plate -> 0.250 co -> 0.500 copper-ore",
+                "0.167 electronic-circuit -> 0.500 cc -> 0.250 copper-cable",
+                "0.167 electronic-circuit -> 0.167 ip -> 0.267 iron-plate",
+                "0.267 iron-plate -> 0.167 io -> 0.333 iron-ore",
                 "0.083 plastic-bar -> 0.083 c -> 0.167 coal",
             ]
         );
@@ -489,7 +511,17 @@ mod tests {
         let nodes: Vec<_> = nodes.into_iter().map(ToString::to_string).collect();
         assert_eq!(
             nodes,
-            vec!["1 advanced-circuit", "0.167 coal", "0.083 plastic-bar",]
+            vec![
+                "1 advanced-circuit",
+                "0.167 coal",
+                "0.417 copper-cable",
+                "0.833 copper-ore",
+                "0.667 copper-plate",
+                "0.167 electronic-circuit",
+                "0.333 iron-ore",
+                "0.267 iron-plate",
+                "0.083 plastic-bar",
+            ]
         );
         let mut edges: Vec<_> = graph
             .edge_indices()
@@ -513,7 +545,14 @@ mod tests {
         assert_eq!(
             edges,
             vec![
+                "1 advanced-circuit -> 0.333 cc -> 0.417 copper-cable",
+                "1 advanced-circuit -> 0.167 ec -> 0.167 electronic-circuit",
                 "1 advanced-circuit -> 0.167 pb -> 0.083 plastic-bar",
+                "0.417 copper-cable -> 0.417 cp -> 0.667 copper-plate",
+                "0.667 copper-plate -> 0.417 co -> 0.833 copper-ore",
+                "0.167 electronic-circuit -> 0.500 cc -> 0.417 copper-cable",
+                "0.167 electronic-circuit -> 0.167 ip -> 0.267 iron-plate",
+                "0.267 iron-plate -> 0.167 io -> 0.333 iron-ore",
                 "0.083 plastic-bar -> 0.083 c -> 0.167 coal",
             ]
         );
@@ -544,7 +583,18 @@ mod tests {
         let nodes: Vec<_> = nodes.into_iter().map(ToString::to_string).collect();
         assert_eq!(
             nodes,
-            vec!["1 advanced-circuit", "0.167 coal", "0.083 plastic-bar",]
+            vec![
+                "1 advanced-circuit",
+                "0.167 coal",
+                "0.167 copper-cable",
+                "0.250 copper-cable",
+                "0.833 copper-ore",
+                "0.667 copper-plate",
+                "0.167 electronic-circuit",
+                "0.333 iron-ore",
+                "0.267 iron-plate",
+                "0.083 plastic-bar",
+            ]
         );
         let mut edges: Vec<_> = graph
             .edge_indices()
@@ -568,7 +618,15 @@ mod tests {
         assert_eq!(
             edges,
             vec![
+                "1 advanced-circuit -> 0.333 cc -> 0.167 copper-cable",
+                "1 advanced-circuit -> 0.167 ec -> 0.167 electronic-circuit",
                 "1 advanced-circuit -> 0.167 pb -> 0.083 plastic-bar",
+                "0.167 copper-cable -> 0.167 cp -> 0.667 copper-plate",
+                "0.250 copper-cable -> 0.250 cp -> 0.667 copper-plate",
+                "0.667 copper-plate -> 0.417 co -> 0.833 copper-ore",
+                "0.167 electronic-circuit -> 0.500 cc -> 0.250 copper-cable",
+                "0.167 electronic-circuit -> 0.167 ip -> 0.267 iron-plate",
+                "0.267 iron-plate -> 0.167 io -> 0.333 iron-ore",
                 "0.083 plastic-bar -> 0.083 c -> 0.167 coal",
             ]
         );

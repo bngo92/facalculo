@@ -59,7 +59,7 @@ impl<'a> ModuleBuilder<'_> {
         let mut inputs: HashMap<String, HashSet<String>> = HashMap::new();
         for (item, dependencies) in &self.nodes {
             if let Some(r) = self.recipes.get(item.as_str()) {
-                if let Category::Mining = r.category {
+                if let Some(Category::Mining) = r.category {
                     inputs.entry(item.clone()).or_default().insert(item.clone());
                 }
             }
@@ -173,7 +173,7 @@ impl<'a> Graph<'a> {
             .iter()
             .map(move |i| {
                 let belt = if let None | Some(Category::OilProcessing) =
-                    self.recipes.get(i.name.as_str()).map(|r| r.category)
+                    self.recipes.get(i.name.as_str()).and_then(|r| r.category)
                 {
                     None
                 } else {
@@ -355,7 +355,7 @@ fn trim(s: &str) -> String {
 }
 
 pub struct RecipeRate<'a> {
-    pub category: Category,
+    pub category: Option<Category>,
     pub key: &'a str,
     pub ingredients: Vec<IngredientRate>,
     pub results: Vec<IngredientRate>,
