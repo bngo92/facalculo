@@ -14,7 +14,7 @@ pub type GraphType = StableGraph<Node, Edge>;
 pub struct ModuleBuilder<'a> {
     name: String,
     outputs: Vec<String>,
-    nodes: HashMap<String, Vec<String>>,
+    inputs: HashMap<String, HashSet<String>>,
     recipes: &'a RecipeRepository,
     imports: &'a [String],
 }
@@ -28,7 +28,7 @@ impl<'a> ModuleBuilder<'_> {
         ModuleBuilder {
             name,
             outputs: Vec::new(),
-            nodes: HashMap::new(),
+            inputs: HashMap::new(),
             recipes,
             imports,
         }
@@ -40,40 +40,28 @@ impl<'a> ModuleBuilder<'_> {
     }
 
     fn add_node(&mut self, key: &str, expand: bool) {
-        let mut edges = Vec::new();
         if expand {
             if let Some(recipe) = self.recipes.get(key).cloned() {
                 for edge in &recipe.ingredients {
                     let edge = &edge.name;
-                    if !self.imports.contains(edge) {
+                    if self.imports.contains(edge) {
+                        self.inputs
+                            .entry(edge.clone())
+                            .or_default()
+                            .insert(edge.clone());
+                    } else {
                         self.add_node(edge, expand);
                     }
-                    edges.push(edge.clone());
                 }
             }
         }
-        self.nodes.insert(key.to_owned(), edges);
     }
 
     pub fn build(self) -> Module {
-        let mut inputs: HashMap<String, HashSet<String>> = HashMap::new();
-        for (item, dependencies) in &self.nodes {
-            if let Some(r) = self.recipes.get(item.as_str()) {
-                if let Some(Category::Mining) = r.category {
-                    inputs.entry(item.clone()).or_default().insert(item.clone());
-                }
-            }
-            for d in dependencies {
-                if !self.nodes.contains_key(d.as_str()) {
-                    inputs.entry(d.clone()).or_default().insert(item.clone());
-                }
-            }
-        }
         Module {
             name: self.name,
             outputs: self.outputs,
-            nodes: self.nodes,
-            inputs,
+            inputs: self.inputs,
         }
     }
 }
@@ -82,7 +70,6 @@ impl<'a> ModuleBuilder<'_> {
 pub struct Module {
     pub name: String,
     pub outputs: Vec<String>,
-    pub nodes: HashMap<String, Vec<String>>,
     pub inputs: HashMap<String, HashSet<String>>,
 }
 
@@ -148,14 +135,14 @@ impl<'a> Graph<'a> {
         });
         for edge in self.get_ingredients(recipe, ratio, belt) {
             if let Some(recipe) = self.recipes.get(edge.item.as_str()) {
-                if module.nodes.contains_key(&edge.item) {
-                    let n = self.build_module_node(module, edge.required, recipe, belt);
-                    self.graph.add_edge(node, n, edge);
-                } else {
+                if module.inputs.contains_key(&edge.item) {
                     self.imports
                         .entry(edge.item.to_owned())
                         .or_default()
                         .push((self.index + node.index(), edge.required));
+                } else {
+                    let n = self.build_module_node(module, edge.required, recipe, belt);
+                    self.graph.add_edge(node, n, edge);
                 }
             }
         }
