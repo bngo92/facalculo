@@ -15,54 +15,75 @@ pub struct ModuleBuilder<'a> {
     name: String,
     outputs: Vec<String>,
     inputs: HashMap<String, HashSet<String>>,
-    recipes: &'a RecipeRepository,
+    overrides: HashMap<String, String>,
+    repository: &'a RecipeRepository,
     imports: &'a [String],
+    recipes: &'a HashSet<String>,
 }
 
 impl<'a> ModuleBuilder<'_> {
     pub fn new(
         name: String,
-        recipes: &'a RecipeRepository,
+        repository: &'a RecipeRepository,
         imports: &'a [String],
+        recipes: &'a HashSet<String>,
     ) -> ModuleBuilder<'a> {
         ModuleBuilder {
             name,
             outputs: Vec::new(),
             inputs: HashMap::new(),
-            recipes,
+            overrides: HashMap::new(),
+            repository,
             imports,
+            recipes,
         }
     }
 
     pub fn add(&mut self, key: &str, expand: bool) {
         self.outputs.push(key.to_owned());
-        self.add_node(key, expand);
+        self.add_node(key, expand).unwrap();
     }
 
-    fn add_node(&mut self, key: &str, expand: bool) {
+    fn add_node(&mut self, key: &str, expand: bool) -> Result<(), Box<dyn std::error::Error>> {
         if expand {
-            if let Some(recipe) = self.recipes.get(key).cloned() {
-                for edge in &recipe.ingredients {
-                    let edge = &edge.name;
-                    if self.imports.contains(edge) {
-                        self.inputs
-                            .entry(edge.clone())
-                            .or_default()
-                            .insert(edge.clone());
-                    } else {
-                        self.add_node(edge, expand);
+            match self.repository.get_options(key) {
+                RepositoryOption::None => {}
+                RepositoryOption::Some(recipe) => {
+                    for edge in &recipe.ingredients {
+                        let edge = &edge.name;
+                        if !self.imports.contains(edge) {
+                            self.add_node(edge, expand)?;
+                        }
+                    }
+                }
+                // Users are required to specify a recipe for an item if there are multiple recipes
+                // that produce the item
+                RepositoryOption::Multiple(options) => {
+                    let options: HashSet<_> = options.iter().cloned().collect();
+                    let recipes: Vec<_> = options.intersection(self.recipes).collect();
+                    if recipes.is_empty() {
+                        Err(format!("Multiple recipes were found for {key}"))?
+                    }
+                    self.overrides.insert(key.to_owned(), recipes[0].clone());
+                    for edge in &self.repository.get(recipes[0]).unwrap().ingredients {
+                        let edge = &edge.name;
+                        if !self.imports.contains(edge) {
+                            self.add_node(edge, expand)?;
+                        }
                     }
                 }
             }
         }
+        Ok(())
     }
 
-    pub fn build(self) -> Module {
-        Module {
+    pub fn build(self) -> Result<Module, Box<dyn std::error::Error>> {
+        Ok(Module {
             name: self.name,
             outputs: self.outputs,
             inputs: self.inputs,
-        }
+            overrides: self.overrides,
+        })
     }
 }
 
@@ -71,6 +92,7 @@ pub struct Module {
     pub name: String,
     pub outputs: Vec<String>,
     pub inputs: HashMap<String, HashSet<String>>,
+    overrides: HashMap<String, String>,
 }
 
 pub struct Graph<'a> {
@@ -106,6 +128,7 @@ impl<'a> Graph<'a> {
             if let Some(recipe) = recipes.get(item.as_str()) {
                 graph.build_module_node(
                     &module,
+                    &recipe.key,
                     *required.get(item).unwrap_or_else(|| match &defaults[item] {
                         Ok(rate) => rate,
                         Err(rate) => {
@@ -124,24 +147,35 @@ impl<'a> Graph<'a> {
     fn build_module_node(
         &mut self,
         module: &Module,
+        ingredient: &str,
         required: Decimal,
         recipe: &RecipeRate,
         belt: Option<i64>,
     ) -> NodeIndex {
-        let ratio = required / recipe.results[0].rate;
+        let ratio = required
+            / recipe
+                .results
+                .iter()
+                .find(|i| i.name == ingredient)
+                .unwrap()
+                .rate;
         let node = self.graph.add_node(Node {
             required: Some(ratio),
             name: recipe.key.to_owned(),
         });
         for edge in self.get_ingredients(recipe, ratio, belt) {
-            if let Some(recipe) = self.recipes.get(edge.item.as_str()) {
+            let item = module
+                .overrides
+                .get(edge.item.as_str())
+                .unwrap_or(&edge.item);
+            if let Some(recipe) = self.recipes.get(item) {
                 if module.inputs.contains_key(&edge.item) {
                     self.imports
                         .entry(edge.item.to_owned())
                         .or_default()
                         .push((self.index + node.index(), edge.required));
                 } else {
-                    let n = self.build_module_node(module, edge.required, recipe, belt);
+                    let n = self.build_module_node(module, &edge.item, edge.required, recipe, belt);
                     self.graph.add_edge(node, n, edge);
                 }
             }
@@ -336,6 +370,12 @@ fn trim(s: &str) -> String {
     )
 }
 
+pub enum RepositoryOption<'a, T> {
+    None,
+    Some(T),
+    Multiple(&'a Vec<String>),
+}
+
 pub struct RecipeRepository {
     pub recipes: HashMap<String, RecipeRate>,
     pub recipe_outputs: HashMap<String, Vec<String>>,
@@ -344,6 +384,14 @@ pub struct RecipeRepository {
 impl RecipeRepository {
     pub fn get(&self, key: &str) -> Option<&RecipeRate> {
         self.recipes.get(key)
+    }
+
+    pub fn get_options(&self, key: &str) -> RepositoryOption<'_, &RecipeRate> {
+        match self.recipe_outputs.get(key) {
+            None => RepositoryOption::None,
+            Some(recipes) if recipes.len() > 1 => RepositoryOption::Multiple(recipes),
+            Some(_) => RepositoryOption::Some(&self.recipes[key]),
+        }
     }
 }
 

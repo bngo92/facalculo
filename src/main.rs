@@ -55,6 +55,8 @@ enum Commands {
         expand: bool,
         #[arg(long)]
         import: Vec<String>,
+        #[arg(long)]
+        recipe: Vec<String>,
     },
     Render {
         files: Vec<String>,
@@ -78,6 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             expand,
             import,
             rate,
+            recipe,
         }) => {
             if args.debug {
                 let data: Value = serde_json::from_slice(b)?;
@@ -101,14 +104,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     imports.extend(module.outputs);
                 }
             }
+            let recipes = recipe.into_iter().collect();
             let mut modules = Vec::new();
             let mut required = HashMap::new();
             for item in items {
                 let mut iter = item.iter();
                 let name = iter.next().unwrap();
-                let mut module = ModuleBuilder::new(name.to_owned(), &recipe_rates, &imports);
+                let mut module =
+                    ModuleBuilder::new(name.to_owned(), &recipe_rates, &imports, &recipes);
                 module.add(name, expand);
-                modules.push(module.build());
+                modules.push(module.build()?);
                 get_recipe(&recipe_rates, name)?;
                 if let Some(rate) = iter.next() {
                     required.insert(name.clone(), rate.parse()?);
@@ -334,6 +339,13 @@ fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
             else {
                 return None;
             };
+            // Ignore recycling for now
+            if matches!(
+                category,
+                Some(Category::Recycling | Category::RecyclingOrHandCrafting)
+            ) {
+                return None;
+            }
             let speed = match r.category {
                 None
                 | Some(Category::Crafting)
@@ -404,9 +416,18 @@ fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
             }],
         },
     );
+    let mut recipe_outputs: HashMap<String, Vec<String>> = HashMap::new();
+    for (key, recipe) in &recipe_rates {
+        for result in &recipe.results {
+            recipe_outputs
+                .entry(result.name.clone())
+                .or_default()
+                .push(key.clone());
+        }
+    }
     RecipeRepository {
         recipes: recipe_rates,
-        recipe_outputs: HashMap::new(),
+        recipe_outputs,
     }
 }
 
@@ -419,10 +440,11 @@ mod tests {
         let b = include_bytes!("data-raw-dump.json");
         let data: Data = serde_json::from_slice(b).unwrap();
         let recipe_rates = calculate_rates(&data, 1);
-        let mut builder = ModuleBuilder::new(String::new(), &recipe_rates, &[]);
+        let recipes = get_recipes();
+        let mut builder = ModuleBuilder::new(String::new(), &recipe_rates, &[], &recipes);
         builder.add("advanced-circuit", true);
         let graph = Graph::from_module(
-            builder.build(),
+            builder.build().unwrap(),
             &HashMap::from_iter([(
                 "advanced-circuit".to_owned(),
                 recipe_rates.get("advanced-circuit").unwrap().results[0].rate,
@@ -440,6 +462,7 @@ mod tests {
             nodes,
             vec![
                 "1 advanced-circuit",
+                "0.152 advanced-oil-processing",
                 "0.167 coal",
                 "0.167 copper-cable",
                 "0.250 copper-cable",
@@ -447,10 +470,12 @@ mod tests {
                 "0.500 copper-ore",
                 "0.267 copper-plate",
                 "0.400 copper-plate",
+                "6.061 crude-oil",
                 "0.167 electronic-circuit",
                 "0.333 iron-ore",
                 "0.267 iron-plate",
                 "0.083 plastic-bar",
+                "0.001 water",
             ]
         );
         let mut edges: Vec<_> = graph
@@ -478,6 +503,8 @@ mod tests {
                 "1 advanced-circuit -> 0.333 cc -> 0.167 copper-cable",
                 "1 advanced-circuit -> 0.167 ec -> 0.167 electronic-circuit",
                 "1 advanced-circuit -> 0.167 pb -> 0.083 plastic-bar",
+                "0.152 advanced-oil-processing -> 3.030 co -> 6.061 crude-oil",
+                "0.152 advanced-oil-processing -> 1.515 w -> 0.001 water",
                 "0.167 copper-cable -> 0.167 cp -> 0.267 copper-plate",
                 "0.250 copper-cable -> 0.250 cp -> 0.400 copper-plate",
                 "0.267 copper-plate -> 0.167 co -> 0.333 copper-ore",
@@ -485,6 +512,7 @@ mod tests {
                 "0.167 electronic-circuit -> 0.500 cc -> 0.250 copper-cable",
                 "0.167 electronic-circuit -> 0.167 ip -> 0.267 iron-plate",
                 "0.267 iron-plate -> 0.167 io -> 0.333 iron-ore",
+                "0.083 plastic-bar -> 1.667 pg -> 0.152 advanced-oil-processing",
                 "0.083 plastic-bar -> 0.083 c -> 0.167 coal",
             ]
         );
@@ -495,10 +523,11 @@ mod tests {
         let b = include_bytes!("data-raw-dump.json");
         let data: Data = serde_json::from_slice(b).unwrap();
         let recipe_rates = calculate_rates(&data, 1);
-        let mut builder = ModuleBuilder::new(String::new(), &recipe_rates, &[]);
+        let recipes = get_recipes();
+        let mut builder = ModuleBuilder::new(String::new(), &recipe_rates, &[], &recipes);
         builder.add("advanced-circuit", true);
         let mut graph = Graph::from_module(
-            builder.build(),
+            builder.build().unwrap(),
             &HashMap::from_iter([(
                 "advanced-circuit".to_owned(),
                 recipe_rates.get("advanced-circuit").unwrap().results[0].rate,
@@ -517,14 +546,17 @@ mod tests {
             nodes,
             vec![
                 "1 advanced-circuit",
+                "0.152 advanced-oil-processing",
                 "0.167 coal",
                 "0.417 copper-cable",
                 "0.833 copper-ore",
                 "0.667 copper-plate",
+                "6.061 crude-oil",
                 "0.167 electronic-circuit",
                 "0.333 iron-ore",
                 "0.267 iron-plate",
                 "0.083 plastic-bar",
+                "0.001 water",
             ]
         );
         let mut edges: Vec<_> = graph
@@ -552,11 +584,14 @@ mod tests {
                 "1 advanced-circuit -> 0.333 cc -> 0.417 copper-cable",
                 "1 advanced-circuit -> 0.167 ec -> 0.167 electronic-circuit",
                 "1 advanced-circuit -> 0.167 pb -> 0.083 plastic-bar",
+                "0.152 advanced-oil-processing -> 3.030 co -> 6.061 crude-oil",
+                "0.152 advanced-oil-processing -> 1.515 w -> 0.001 water",
                 "0.417 copper-cable -> 0.417 cp -> 0.667 copper-plate",
                 "0.667 copper-plate -> 0.417 co -> 0.833 copper-ore",
                 "0.167 electronic-circuit -> 0.500 cc -> 0.417 copper-cable",
                 "0.167 electronic-circuit -> 0.167 ip -> 0.267 iron-plate",
                 "0.267 iron-plate -> 0.167 io -> 0.333 iron-ore",
+                "0.083 plastic-bar -> 1.667 pg -> 0.152 advanced-oil-processing",
                 "0.083 plastic-bar -> 0.083 c -> 0.167 coal",
             ]
         );
@@ -567,10 +602,11 @@ mod tests {
         let b = include_bytes!("data-raw-dump.json");
         let data: Data = serde_json::from_slice(b).unwrap();
         let recipe_rates = calculate_rates(&data, 1);
-        let mut builder = ModuleBuilder::new(String::new(), &recipe_rates, &[]);
+        let recipes = get_recipes();
+        let mut builder = ModuleBuilder::new(String::new(), &recipe_rates, &[], &recipes);
         builder.add("advanced-circuit", true);
         let mut graph = Graph::from_module(
-            builder.build(),
+            builder.build().unwrap(),
             &HashMap::from_iter([(
                 "advanced-circuit".to_owned(),
                 recipe_rates
@@ -594,15 +630,18 @@ mod tests {
             nodes,
             vec![
                 "1 advanced-circuit",
+                "0.152 advanced-oil-processing",
                 "0.167 coal",
                 "0.167 copper-cable",
                 "0.250 copper-cable",
                 "0.833 copper-ore",
                 "0.667 copper-plate",
+                "6.061 crude-oil",
                 "0.167 electronic-circuit",
                 "0.333 iron-ore",
                 "0.267 iron-plate",
                 "0.083 plastic-bar",
+                "0.001 water",
             ]
         );
         let mut edges: Vec<_> = graph
@@ -630,14 +669,35 @@ mod tests {
                 "1 advanced-circuit -> 0.333 cc -> 0.167 copper-cable",
                 "1 advanced-circuit -> 0.167 ec -> 0.167 electronic-circuit",
                 "1 advanced-circuit -> 0.167 pb -> 0.083 plastic-bar",
+                "0.152 advanced-oil-processing -> 3.030 co -> 6.061 crude-oil",
+                "0.152 advanced-oil-processing -> 1.515 w -> 0.001 water",
                 "0.167 copper-cable -> 0.167 cp -> 0.667 copper-plate",
                 "0.250 copper-cable -> 0.250 cp -> 0.667 copper-plate",
                 "0.667 copper-plate -> 0.417 co -> 0.833 copper-ore",
                 "0.167 electronic-circuit -> 0.500 cc -> 0.250 copper-cable",
                 "0.167 electronic-circuit -> 0.167 ip -> 0.267 iron-plate",
                 "0.267 iron-plate -> 0.167 io -> 0.333 iron-ore",
+                "0.083 plastic-bar -> 1.667 pg -> 0.152 advanced-oil-processing",
                 "0.083 plastic-bar -> 0.083 c -> 0.167 coal",
             ]
         );
+    }
+
+    fn get_recipes() -> HashSet<String> {
+        [
+            "iron-plate",
+            "copper-cable",
+            "plastic-bar",
+            "iron-ore",
+            "copper-plate",
+            "copper-ore",
+            "advanced-oil-processing",
+            "water",
+            "crude-oil",
+            "coal",
+        ]
+        .into_iter()
+        .map(ToOwned::to_owned)
+        .collect::<HashSet<_>>()
     }
 }
