@@ -97,7 +97,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             let mut imports = Vec::new();
             for import in import {
-                if recipe_rates.get(import.as_str()).is_some() {
+                if recipe_rates.get(import.as_str()).is_some()
+                    || data.fluid.get(import.as_str()).is_some()
+                {
                     imports.push(import);
                 } else {
                     let module: Module = serde_json::from_slice::<Module>(&fs::read(import)?)?;
@@ -291,6 +293,7 @@ fn get_recipe<'a>(recipes: &'a RecipeRepository, name: &str) -> Result<&'a Recip
 
 #[derive(Debug, Deserialize)]
 struct Data<'a> {
+    fluid: HashMap<&'a str, Value>,
     recipe: HashMap<&'a str, Recipe>,
     #[serde(borrow)]
     resource: HashMap<&'a str, Resource>,
