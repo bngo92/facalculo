@@ -3,21 +3,15 @@
   "outputs": [
     "automation-science-pack"
   ],
-  "nodes": {
-    "iron-gear-wheel": [
-      "iron-plate"
+  "inputs": {
+    "copper-plate": [
+      "copper-plate"
     ],
-    "automation-science-pack": [
-      "copper-plate",
-      "iron-gear-wheel"
+    "iron-plate": [
+      "iron-plate"
     ]
   },
-  "inputs": {
-    "iron-plate": [
-      "iron-gear-wheel"
-    ],
-    "copper-plate": [
-      "automation-science-pack"
-    ]
+  "overrides": {
+    "iron-gear-wheel": "iron-gear-wheel"
   }
 }

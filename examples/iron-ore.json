@@ -3,12 +3,8 @@
   "outputs": [
     "iron-ore"
   ],
-  "nodes": {
-    "iron-ore": []
-  },
-  "inputs": {
-    "iron-ore": [
-      "iron-ore"
-    ]
+  "inputs": {},
+  "overrides": {
+    "iron-ore": "iron-ore"
   }
 }

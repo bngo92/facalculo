@@ -3,14 +3,12 @@
   "outputs": [
     "iron-plate"
   ],
-  "nodes": {
-    "iron-plate": [
+  "inputs": {
+    "iron-ore": [
       "iron-ore"
     ]
   },
-  "inputs": {
-    "iron-ore": [
-      "iron-plate"
-    ]
+  "overrides": {
+    "iron-plate": "iron-plate"
   }
 }
