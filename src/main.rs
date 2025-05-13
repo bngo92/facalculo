@@ -1,6 +1,8 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use facalculo::{
-    compute, Category, Graph, IngredientRate, Module, ModuleBuilder, RecipeRate, RecipeRepository,
+    compute, data,
+    data::Data,
+    module::{Graph, Module},
 };
 use graphviz_rust::{
     cmd::{CommandArg, Format},
@@ -9,13 +11,11 @@ use graphviz_rust::{
 };
 use petgraph::{prelude::GraphMap, Directed};
 use rust_decimal::Decimal;
-use serde_derive::Deserialize;
 use serde_json::Value;
 use std::{
     collections::{HashMap, HashSet},
     fs,
     process::Command,
-    str::FromStr,
 };
 
 #[derive(Parser, Debug)]
@@ -71,7 +71,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let b = include_bytes!("data-raw-dump.json");
     let data: Data = serde_json::from_slice(b)?;
-    let recipe_rates = calculate_rates(&data, args.asm);
+    let recipe_rates = data::calculate_rates(&data, args.asm);
     let belt = args.belt.map(|b| b as i64);
     match args.command {
         None => (),
@@ -96,11 +96,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 return Ok(());
             }
             let mut imports = Vec::new();
-            for import in import {
+            for import in &import {
                 if recipe_rates.get(import.as_str()).is_some()
-                    || data.fluid.get(import.as_str()).is_some()
+                    || data.fluid.contains_key(import.as_str())
                 {
-                    imports.push(import);
+                    imports.push(import.clone());
                 } else {
                     let module: Module = serde_json::from_slice::<Module>(&fs::read(import)?)?;
                     imports.extend(module.outputs);
@@ -112,11 +112,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             for item in items {
                 let mut iter = item.iter();
                 let name = iter.next().unwrap();
-                let mut module =
-                    ModuleBuilder::new(name.to_owned(), &recipe_rates, &imports, &recipes);
-                module.add(name, expand);
-                modules.push(module.build()?);
-                get_recipe(&recipe_rates, name)?;
+                modules.push(facalculo::generate(
+                    name,
+                    expand,
+                    &import,
+                    &recipes,
+                    &recipe_rates,
+                )?);
                 if let Some(rate) = iter.next() {
                     required.insert(name.clone(), rate.parse()?);
                 }
@@ -273,176 +275,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn get_recipe<'a>(recipes: &'a RecipeRepository, name: &str) -> Result<&'a RecipeRate, String> {
-    if let Some(recipe) = recipes.get(name) {
-        Ok(recipe)
-    } else {
-        let mut found = false;
-        for k in recipes.recipes.keys() {
-            if k.contains(name) {
-                if !found {
-                    found = true;
-                    eprintln!("{name} was not found. Similar items:");
-                }
-                eprintln!("{}", k);
-            }
-        }
-        Err(format!("{name} was not found"))
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct Data<'a> {
-    fluid: HashMap<&'a str, Value>,
-    recipe: HashMap<&'a str, Recipe>,
-    #[serde(borrow)]
-    resource: HashMap<&'a str, Resource>,
-}
-
-#[derive(Debug, Deserialize)]
-struct Recipe {
-    category: Option<Category>,
-    energy_required: Option<Decimal>,
-    ingredients: Option<Value>,
-    results: Option<Value>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-struct Ingredient {
-    amount: Decimal,
-    name: String,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-struct RecipeResult {
-    amount: Decimal,
-    name: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct Resource {
-    minable: Mineable,
-}
-
-#[derive(Debug, Deserialize)]
-struct Mineable {
-    mining_time: Decimal,
-}
-
-fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
-    let mut recipe_rates: HashMap<_, _> = data
-        .recipe
-        .iter()
-        .filter_map(|(key, r)| {
-            let energy_required = r
-                .energy_required
-                .unwrap_or(Decimal::from_str("0.5").unwrap());
-            let (category, Some(Value::Array(ingredients)), Some(Value::Array(results))) =
-                (r.category, &r.ingredients, &r.results)
-            else {
-                return None;
-            };
-            // Ignore recycling for now
-            if matches!(
-                category,
-                Some(Category::Recycling | Category::RecyclingOrHandCrafting)
-            ) {
-                return None;
-            }
-            let speed = match r.category {
-                None
-                | Some(Category::Crafting)
-                | Some(Category::CraftingWithFluid)
-                | Some(Category::Electronics)
-                | Some(Category::ElectronicsWithFluid)
-                | Some(Category::Pressing) => match asm {
-                    1 => Decimal::from_str("0.5").unwrap(),
-                    2 => Decimal::from_str("0.75").unwrap(),
-                    3 => Decimal::from_str("1.25").unwrap(),
-                    _ => unimplemented!(),
-                },
-                Some(Category::Smelting) => Decimal::new(2, 0),
-                _ => Decimal::ONE,
-            };
-            let rate = RecipeRate {
-                category,
-                key: (*key).to_owned(),
-                ingredients: ingredients
-                    .iter()
-                    .cloned()
-                    .filter_map(|i| {
-                        let i: Ingredient = serde_json::from_value(i).ok()?;
-                        Some(IngredientRate {
-                            rate: i.amount / energy_required * speed,
-                            name: i.name,
-                        })
-                    })
-                    .collect(),
-                results: results
-                    .iter()
-                    .cloned()
-                    .filter_map(|i| {
-                        let i: RecipeResult = serde_json::from_value(i).ok()?;
-                        Some(IngredientRate {
-                            rate: i.amount / energy_required * speed,
-                            name: i.name,
-                        })
-                    })
-                    .collect(),
-            };
-            Some(((*key).to_owned(), rate))
-        })
-        .collect();
-    // Add mining recipes
-    for (key, resource) in &data.resource {
-        let rate = RecipeRate {
-            category: None,
-            key: (*key).to_owned(),
-            ingredients: Vec::new(),
-            results: vec![IngredientRate {
-                rate: resource.minable.mining_time * Decimal::from_str("0.5").unwrap(),
-                name: (*key).to_owned(),
-            }],
-        };
-        recipe_rates.insert((*key).to_owned(), rate);
-    }
-    // Add water pumping
-    recipe_rates.insert(
-        "water".to_owned(),
-        RecipeRate {
-            category: None,
-            key: "water".to_owned(),
-            ingredients: Vec::new(),
-            results: vec![IngredientRate {
-                rate: Decimal::new(1200, 0),
-                name: String::from("water"),
-            }],
-        },
-    );
-    let mut recipe_outputs: HashMap<String, Vec<String>> = HashMap::new();
-    for (key, recipe) in &recipe_rates {
-        for result in &recipe.results {
-            recipe_outputs
-                .entry(result.name.clone())
-                .or_default()
-                .push(key.clone());
-        }
-    }
-    RecipeRepository {
-        recipes: recipe_rates,
-        recipe_outputs,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use facalculo::module::ModuleBuilder;
 
     #[test]
     fn advanced_circuit() {
         let b = include_bytes!("data-raw-dump.json");
         let data: Data = serde_json::from_slice(b).unwrap();
-        let recipe_rates = calculate_rates(&data, 1);
+        let recipe_rates = data::calculate_rates(&data, 1);
         let recipes = get_recipes();
         let mut builder = ModuleBuilder::new(String::new(), &recipe_rates, &[], &recipes);
         builder.add("advanced-circuit", true);
@@ -525,7 +367,7 @@ mod tests {
     fn group_all_advanced_circuit() {
         let b = include_bytes!("data-raw-dump.json");
         let data: Data = serde_json::from_slice(b).unwrap();
-        let recipe_rates = calculate_rates(&data, 1);
+        let recipe_rates = data::calculate_rates(&data, 1);
         let recipes = get_recipes();
         let mut builder = ModuleBuilder::new(String::new(), &recipe_rates, &[], &recipes);
         builder.add("advanced-circuit", true);
@@ -604,7 +446,7 @@ mod tests {
     fn group_advanced_circuit() {
         let b = include_bytes!("data-raw-dump.json");
         let data: Data = serde_json::from_slice(b).unwrap();
-        let recipe_rates = calculate_rates(&data, 1);
+        let recipe_rates = data::calculate_rates(&data, 1);
         let recipes = get_recipes();
         let mut builder = ModuleBuilder::new(String::new(), &recipe_rates, &[], &recipes);
         builder.add("advanced-circuit", true);

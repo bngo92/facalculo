@@ -3,12 +3,8 @@
   "outputs": [
     "copper-ore"
   ],
-  "nodes": {
-    "copper-ore": []
-  },
-  "inputs": {
-    "copper-ore": [
-      "copper-ore"
-    ]
+  "inputs": {},
+  "overrides": {
+    "copper-ore": "copper-ore"
   }
 }

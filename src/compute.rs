@@ -1,4 +1,4 @@
-use crate::Graph;
+use crate::module::{Edge, Graph};
 use petgraph::{
     visit::{Dfs, EdgeRef, IntoEdgeReferences, IntoNodeReferences, NodeIndexable, NodeRef},
     Direction,
@@ -64,7 +64,7 @@ fn render_module(
                     "{indent}{} -> {} [label = \"{}\" dir=back]",
                     import,
                     node.index() + index,
-                    crate::Edge {
+                    Edge {
                         item: node_obj.name.clone(),
                         required,
                         belt: None
