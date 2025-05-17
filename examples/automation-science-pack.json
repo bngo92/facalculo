@@ -1,17 +1,17 @@
 {
   "name": "automation-science-pack",
-  "outputs": [
-    "automation-science-pack"
-  ],
-  "inputs": {
-    "copper-plate": [
-      "copper-plate"
-    ],
-    "iron-plate": [
-      "iron-plate"
+  "module": {
+    "user": [
+      {
+        "recipe": {
+          "name": "automation-science-pack"
+        }
+      },
+      {
+        "recipe": {
+          "name": "iron-gear-wheel"
+        }
+      }
     ]
-  },
-  "overrides": {
-    "iron-gear-wheel": "iron-gear-wheel"
   }
 }

@@ -72,8 +72,13 @@ fn render_module(
                 )?;
             }
         } else {
-            *node_obj.required.as_mut().unwrap() *=
-                graph.recipes.get(node_obj.name.as_str()).unwrap().results[0].rate;
+            *node_obj.required.as_mut().unwrap() *= graph
+                .recipes
+                .get(node_obj.name.as_str())
+                .unwrap()
+                .rate()
+                .results[0]
+                .rate;
             writeln!(
                 f,
                 "{indent}0 -> {} [label = \"{}\" dir=back]",
@@ -84,14 +89,19 @@ fn render_module(
     }
     for node in g.externals(Direction::Outgoing) {
         let edges = graph.get_ingredients(
-            graph.recipes.get(g[node].name.as_str()).unwrap(),
+            graph.recipes.get(g[node].name.as_str()).unwrap().rate(),
             g[node].required.unwrap(),
             None,
         );
         if edges.is_empty() {
             let mut node_obj = g[node].clone();
-            *node_obj.required.as_mut().unwrap() *=
-                graph.recipes.get(node_obj.name.as_str()).unwrap().results[0].rate;
+            *node_obj.required.as_mut().unwrap() *= graph
+                .recipes
+                .get(node_obj.name.as_str())
+                .unwrap()
+                .rate()
+                .results[0]
+                .rate;
             writeln!(
                 f,
                 "{indent}{} -> 1 [label = \"{}\" dir=back]",
@@ -130,8 +140,8 @@ pub fn total<'a>(graphs: &'a [Graph]) -> HashMap<&'a str, Decimal> {
         let mut dfs = Dfs::new(graph, graph.externals(Direction::Incoming).next().unwrap());
         while let Some(nx) = dfs.next(&graph) {
             if let Some(recipe) = recipes.get(graph[nx].name.as_str()) {
-                let ratio = graph[nx].required.unwrap() / recipe.results[0].rate;
-                for i in &recipe.ingredients {
+                let ratio = graph[nx].required.unwrap() / recipe.rate().results[0].rate;
+                for i in &recipe.rate().ingredients {
                     *total.entry(i.name.as_str()).or_insert(Decimal::ZERO) += ratio * i.rate;
                 }
             }

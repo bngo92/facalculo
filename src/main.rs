@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use facalculo::{
     compute, data,
     data::Data,
-    module::{Graph, Module},
+    module::{Graph, NamedModule},
 };
 use graphviz_rust::{
     cmd::{CommandArg, Format},
@@ -102,8 +102,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 {
                     imports.push(import.clone());
                 } else {
-                    let module: Module = serde_json::from_slice::<Module>(&fs::read(import)?)?;
-                    imports.extend(module.outputs);
+                    let module = serde_json::from_slice::<NamedModule>(&fs::read(import)?)?;
+                    imports.extend(
+                        recipe_rates
+                            .get_outputs(&module)
+                            .into_iter()
+                            .map(ToOwned::to_owned),
+                    );
                 }
             }
             let recipes = recipe.into_iter().collect();
@@ -163,7 +168,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         if let Some(recipe) = recipe_rates.get(key) {
                             format!(
                                 " ({})",
-                                facalculo::round_string(required / recipe.results[0].rate)
+                                facalculo::round_string(required / recipe.rate().results[0].rate)
                             )
                         } else {
                             String::new()
@@ -185,14 +190,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let modules = files
                 .into_iter()
                 .map(
-                    |f| -> Result<(String, Module), Box<dyn std::error::Error>> {
-                        let module: Module = serde_json::from_slice(&fs::read(f)?)?;
+                    |f| -> Result<(String, NamedModule), Box<dyn std::error::Error>> {
+                        let module: NamedModule = serde_json::from_slice(&fs::read(f)?)?;
                         Ok((module.name.clone(), module))
                     },
                 )
                 .collect::<Result<Vec<_>, _>>()?;
             let modules: HashMap<_, _> = modules.into_iter().collect();
-            let outputs: HashSet<_> = modules.values().flat_map(|m| m.outputs.clone()).collect();
+            let outputs: HashSet<_> = modules
+                .values()
+                .flat_map(|m| recipe_rates.get_outputs(m))
+                .collect();
             let rates = items
                 .into_iter()
                 .map(|items| {
@@ -219,13 +227,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 })
                 .collect();
             for o in outputs {
-                if let Some(rate) = rates.get(&o) {
-                    required.insert(o.clone(), *rate);
+                if let Some(rate) = rates.get(o) {
+                    required.insert(o.to_owned(), *rate);
                 }
             }
             let mut graph = GraphMap::<&str, (), Directed>::new();
             for (node, module) in &modules {
-                for input in module.inputs.keys() {
+                for input in recipe_rates.get_inputs(module) {
                     if node != input {
                         graph.add_edge(node, input, ());
                     }
@@ -292,7 +300,7 @@ mod tests {
             builder.build().unwrap(),
             &HashMap::from_iter([(
                 "advanced-circuit".to_owned(),
-                recipe_rates.get("advanced-circuit").unwrap().results[0].rate,
+                recipe_rates.get("advanced-circuit").unwrap().rate().results[0].rate,
             )]),
             &HashMap::new(),
             &recipe_rates,
@@ -375,7 +383,7 @@ mod tests {
             builder.build().unwrap(),
             &HashMap::from_iter([(
                 "advanced-circuit".to_owned(),
-                recipe_rates.get("advanced-circuit").unwrap().results[0].rate,
+                recipe_rates.get("advanced-circuit").unwrap().rate().results[0].rate,
             )]),
             &HashMap::new(),
             &recipe_rates,

@@ -45,7 +45,7 @@ struct Mineable {
 }
 
 pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
-    let mut recipe_rates: HashMap<_, _> = data
+    let recipe_rates: HashMap<_, _> = data
         .recipe
         .iter()
         .filter_map(|(key, r)| {
@@ -108,6 +108,7 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
             Some(((*key).to_owned(), rate))
         })
         .collect();
+    let mut resources = HashMap::new();
     // Add mining recipes
     for (key, resource) in &data.resource {
         let rate = RecipeRate {
@@ -119,10 +120,10 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
                 name: (*key).to_owned(),
             }],
         };
-        recipe_rates.insert((*key).to_owned(), rate);
+        resources.insert((*key).to_owned(), rate);
     }
     // Add water pumping
-    recipe_rates.insert(
+    resources.insert(
         "water".to_owned(),
         RecipeRate {
             category: None,
@@ -143,8 +144,17 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
                 .push(key.clone());
         }
     }
+    for (key, recipe) in &resources {
+        for result in &recipe.results {
+            recipe_outputs
+                .entry(result.name.clone())
+                .or_default()
+                .push(key.clone());
+        }
+    }
     RecipeRepository {
         recipes: recipe_rates,
+        resources,
         recipe_outputs,
     }
 }

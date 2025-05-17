@@ -1,4 +1,4 @@
-use crate::{Category, RecipeRate};
+use crate::{Category, Rate, RecipeRate};
 use petgraph::{algo, graph::NodeIndex, stable_graph::StableGraph, visit::EdgeRef, Direction};
 use rust_decimal::Decimal;
 use serde_derive::{Deserialize, Serialize};
@@ -11,12 +11,10 @@ pub type GraphType = StableGraph<Node, Edge>;
 
 pub struct ModuleBuilder<'a> {
     name: String,
-    outputs: Vec<String>,
-    inputs: HashMap<String, HashSet<String>>,
-    overrides: HashMap<String, String>,
     repository: &'a RecipeRepository,
     imports: &'a [String],
     recipes: &'a HashSet<String>,
+    structures: Vec<Structure>,
 }
 
 impl<'a> ModuleBuilder<'_> {
@@ -28,37 +26,60 @@ impl<'a> ModuleBuilder<'_> {
     ) -> ModuleBuilder<'a> {
         ModuleBuilder {
             name,
-            outputs: Vec::new(),
-            inputs: HashMap::new(),
-            overrides: HashMap::new(),
             repository,
             imports,
             recipes,
+            structures: Vec::new(),
         }
     }
 
     pub fn add(&mut self, key: &str, expand: bool) {
-        self.outputs.push(key.to_owned());
-        self.add_node(key, expand).unwrap();
+        let rate = &self.repository.get(key).unwrap();
+        match rate {
+            Rate::Recipe(recipe) => {
+                self.structures.push(Structure::Recipe(Recipe {
+                    name: recipe.key.clone(),
+                }));
+                self.add_node(key, expand).unwrap();
+            }
+            Rate::Resource(resource) => {
+                self.structures.push(Structure::Resource(Resource {
+                    name: resource.key.clone(),
+                }));
+            }
+        }
     }
 
     fn add_node(&mut self, key: &str, expand: bool) -> Result<(), Box<dyn std::error::Error>> {
         if expand {
             match self.repository.get_options(key) {
                 RepositoryOption::None => {}
-                RepositoryOption::Some(recipe) => {
-                    for edge in &recipe.ingredients {
-                        let edge = &edge.name;
-                        if self.imports.contains(edge) {
-                            self.inputs
-                                .entry(edge.clone())
-                                .or_default()
-                                .insert(edge.clone());
-                        } else {
-                            self.add_node(edge, expand)?;
+                RepositoryOption::Some(rate) => match rate {
+                    Rate::Recipe(recipe) => {
+                        for edge in &recipe.ingredients {
+                            let edge = &edge.name;
+                            if !self.imports.contains(edge) {
+                                self.structures
+                                    .push(match self.repository.get(edge).unwrap() {
+                                        Rate::Recipe(recipe) => Structure::Recipe(Recipe {
+                                            name: recipe.key.clone(),
+                                        }),
+                                        Rate::Resource(recipe) => Structure::Resource(Resource {
+                                            name: recipe.key.clone(),
+                                        }),
+                                    });
+                                self.add_node(edge, expand)?;
+                            }
                         }
                     }
-                }
+                    Rate::Resource(resource) => {
+                        if !self.imports.contains(&resource.key) {
+                            self.structures.push(Structure::Resource(Resource {
+                                name: resource.key.to_owned(),
+                            }));
+                        }
+                    }
+                },
                 // Users are required to specify a recipe for an item if there are multiple recipes
                 // that produce the item
                 RepositoryOption::Multiple(options) => {
@@ -67,16 +88,25 @@ impl<'a> ModuleBuilder<'_> {
                     if recipes.is_empty() {
                         Err(format!("Multiple recipes were found for {key}"))?
                     }
-                    self.overrides.insert(key.to_owned(), recipes[0].clone());
-                    for edge in &self.repository.get(recipes[0]).unwrap().ingredients {
-                        let edge = &edge.name;
-                        if self.imports.contains(edge) {
-                            self.inputs
-                                .entry(edge.clone())
-                                .or_default()
-                                .insert(edge.clone());
-                        } else {
-                            self.add_node(edge, expand)?;
+                    let rate = &self.repository.get(recipes[0]).unwrap();
+                    match rate {
+                        Rate::Recipe(recipe) => {
+                            for edge in &recipe.ingredients {
+                                let edge = &edge.name;
+                                if !self.imports.contains(edge) {
+                                    self.structures.push(Structure::Recipe(Recipe {
+                                        name: recipe.key.clone(),
+                                    }));
+                                    self.add_node(edge, expand)?;
+                                }
+                            }
+                        }
+                        Rate::Resource(resource) => {
+                            if !self.imports.contains(&resource.key) {
+                                self.structures.push(Structure::Resource(Resource {
+                                    name: resource.key.to_owned(),
+                                }));
+                            }
                         }
                     }
                 }
@@ -85,22 +115,41 @@ impl<'a> ModuleBuilder<'_> {
         Ok(())
     }
 
-    pub fn build(self) -> Result<Module, Box<dyn std::error::Error>> {
-        Ok(Module {
+    pub fn build(self) -> Result<NamedModule, Box<dyn std::error::Error>> {
+        Ok(NamedModule {
             name: self.name,
-            outputs: self.outputs,
-            inputs: self.inputs,
-            overrides: self.overrides,
+            module: Module::User(self.structures),
         })
     }
 }
 
 #[derive(Clone, Deserialize, Serialize)]
-pub struct Module {
+pub struct NamedModule {
     pub name: String,
-    pub outputs: Vec<String>,
-    pub inputs: HashMap<String, HashSet<String>>,
-    overrides: HashMap<String, String>,
+    module: Module,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Module {
+    User(Vec<Structure>),
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Structure {
+    Resource(Resource),
+    Recipe(Recipe),
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Resource {
+    pub name: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Recipe {
+    pub name: String,
 }
 
 pub struct Graph<'a> {
@@ -123,7 +172,7 @@ impl<'a> Graph<'a> {
     }
 
     pub fn from_module(
-        module: Module,
+        module: NamedModule,
         required: &HashMap<String, Decimal>,
         defaults: &HashMap<String, Result<Decimal, Decimal>>,
         recipes: &'a RecipeRepository,
@@ -132,11 +181,11 @@ impl<'a> Graph<'a> {
     ) -> Graph<'a> {
         let mut graph = Graph::new(recipes, index);
         graph.name = module.name.clone();
-        for item in &module.outputs {
-            if let Some(recipe) = recipes.get(item.as_str()) {
+        for item in recipes.get_outputs(&module) {
+            if let Some(recipe) = recipes.get(item) {
                 graph.build_module_node(
                     &module,
-                    &recipe.key,
+                    &recipe.rate().key,
                     *required.get(item).unwrap_or_else(|| match &defaults[item] {
                         Ok(rate) => rate,
                         Err(rate) => {
@@ -147,7 +196,7 @@ impl<'a> Graph<'a> {
                             rate
                         }
                     }),
-                    recipe,
+                    recipe.rate(),
                     belt,
                 );
             }
@@ -157,7 +206,7 @@ impl<'a> Graph<'a> {
 
     fn build_module_node(
         &mut self,
-        module: &Module,
+        module: &NamedModule,
         ingredient: &str,
         required: Decimal,
         recipe: &RecipeRate,
@@ -175,20 +224,31 @@ impl<'a> Graph<'a> {
             name: recipe.key.to_owned(),
         });
         for edge in self.get_ingredients(recipe, ratio, belt) {
-            let item = module
-                .overrides
-                .get(edge.item.as_str())
-                .unwrap_or(&edge.item);
-            if let Some(recipe) = self.recipes.get(item) {
-                if module.inputs.contains_key(&edge.item) {
-                    self.imports
-                        .entry(edge.item.to_owned())
-                        .or_default()
-                        .push((self.index + node.index(), edge.required));
-                } else {
-                    let n = self.build_module_node(module, &edge.item, edge.required, recipe, belt);
-                    self.graph.add_edge(node, n, edge);
-                }
+            if self.recipes.get_inputs(module).contains(edge.item.as_str()) {
+                self.imports
+                    .entry(edge.item.to_owned())
+                    .or_default()
+                    .push((self.index + node.index(), edge.required));
+            } else {
+                let recipe = match self.recipes.get_options(&edge.item) {
+                    RepositoryOption::None => continue,
+                    RepositoryOption::Some(recipe) => recipe.rate(),
+                    RepositoryOption::Multiple(recipes) => {
+                        let recipes: HashSet<_> = recipes.iter().collect();
+                        let Module::User(structures) = &module.module;
+                        let recipe = structures
+                            .iter()
+                            .map(|s| match s {
+                                Structure::Recipe(r) => &r.name,
+                                Structure::Resource(r) => &r.name,
+                            })
+                            .find(|r| recipes.contains(r))
+                            .unwrap();
+                        self.recipes.get(recipe).unwrap().rate()
+                    }
+                };
+                let n = self.build_module_node(module, &edge.item, edge.required, recipe, belt);
+                self.graph.add_edge(node, n, edge);
             }
         }
         node
@@ -205,8 +265,13 @@ impl<'a> Graph<'a> {
             .iter()
             .map(move |i| {
                 let belt = if let None | Some(Category::OilProcessing) =
-                    self.recipes.get(i.name.as_str()).and_then(|r| r.category)
-                {
+                    self.recipes.get(i.name.as_str()).and_then(|r| {
+                        if let Rate::Recipe(r) = r {
+                            r.category
+                        } else {
+                            None
+                        }
+                    }) {
                     None
                 } else {
                     belt
@@ -395,19 +460,80 @@ pub enum RepositoryOption<'a, T> {
 
 pub struct RecipeRepository {
     pub recipes: HashMap<String, RecipeRate>,
+    pub resources: HashMap<String, RecipeRate>,
     pub recipe_outputs: HashMap<String, Vec<String>>,
 }
 
 impl RecipeRepository {
-    pub fn get(&self, key: &str) -> Option<&RecipeRate> {
-        self.recipes.get(key)
+    pub fn get(&self, key: &str) -> Option<Rate> {
+        if let Some(recipe) = self.recipes.get(key) {
+            Some(Rate::Recipe(recipe))
+        } else {
+            self.resources.get(key).map(Rate::Resource)
+        }
     }
 
-    pub fn get_options(&self, key: &str) -> RepositoryOption<'_, &RecipeRate> {
+    pub fn get_options(&self, key: &str) -> RepositoryOption<'_, Rate> {
         match self.recipe_outputs.get(key) {
             None => RepositoryOption::None,
             Some(recipes) if recipes.len() > 1 => RepositoryOption::Multiple(recipes),
-            Some(_) => RepositoryOption::Some(&self.recipes[key]),
+            Some(_) => RepositoryOption::Some(self.get(key).unwrap()),
         }
+    }
+
+    pub fn get_inputs(&self, module: &NamedModule) -> HashSet<&str> {
+        let Module::User(structures) = &module.module;
+        let mut inputs = HashSet::new();
+        let mut outputs = HashSet::new();
+        for structure in structures {
+            match structure {
+                Structure::Recipe(recipe) => {
+                    inputs.extend(
+                        self.recipes[&recipe.name]
+                            .ingredients
+                            .iter()
+                            .map(|i| i.name.as_str()),
+                    );
+                    outputs.extend(
+                        self.recipes[&recipe.name]
+                            .results
+                            .iter()
+                            .map(|i| i.name.as_str()),
+                    );
+                }
+                Structure::Resource(resource) => {
+                    outputs.insert(self.resources[&resource.name].key.as_str());
+                }
+            }
+        }
+        inputs.difference(&outputs).copied().collect()
+    }
+
+    pub fn get_outputs(&self, module: &NamedModule) -> HashSet<&str> {
+        let Module::User(structures) = &module.module;
+        let mut inputs = HashSet::new();
+        let mut outputs = HashSet::new();
+        for structure in structures {
+            match structure {
+                Structure::Recipe(recipe) => {
+                    inputs.extend(
+                        self.recipes[&recipe.name]
+                            .ingredients
+                            .iter()
+                            .map(|i| i.name.as_str()),
+                    );
+                    outputs.extend(
+                        self.recipes[&recipe.name]
+                            .results
+                            .iter()
+                            .map(|i| i.name.as_str()),
+                    );
+                }
+                Structure::Resource(resource) => {
+                    outputs.insert(self.resources[&resource.name].key.as_str());
+                }
+            }
+        }
+        outputs.difference(&inputs).copied().collect()
     }
 }

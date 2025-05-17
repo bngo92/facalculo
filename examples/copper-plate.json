@@ -1,14 +1,12 @@
 {
   "name": "copper-plate",
-  "outputs": [
-    "copper-plate"
-  ],
-  "inputs": {
-    "copper-ore": [
-      "copper-ore"
+  "module": {
+    "user": [
+      {
+        "recipe": {
+          "name": "copper-plate"
+        }
+      }
     ]
-  },
-  "overrides": {
-    "copper-plate": "copper-plate"
   }
 }

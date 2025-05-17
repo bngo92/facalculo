@@ -1,5 +1,5 @@
 #![feature(let_chains)]
-use module::{Module, ModuleBuilder, RecipeRepository};
+use module::{ModuleBuilder, NamedModule, RecipeRepository};
 use rust_decimal::Decimal;
 use serde_derive::Deserialize;
 use std::{collections::HashSet, fmt::Display};
@@ -14,14 +14,14 @@ pub fn generate(
     imports: &[String],
     recipes: &HashSet<String>,
     recipe_rates: &RecipeRepository,
-) -> Result<Module, Box<dyn std::error::Error>> {
+) -> Result<NamedModule, Box<dyn std::error::Error>> {
     let mut module = ModuleBuilder::new(name.to_owned(), recipe_rates, imports, recipes);
     module.add(name, expand);
     get_recipe(recipe_rates, name)?;
     module.build()
 }
 
-pub fn get_recipe<'a>(recipes: &'a RecipeRepository, name: &str) -> Result<&'a RecipeRate, String> {
+pub fn get_recipe<'a>(recipes: &'a RecipeRepository, name: &str) -> Result<Rate<'a>, String> {
     if let Some(recipe) = recipes.get(name) {
         Ok(recipe)
     } else {
@@ -41,6 +41,21 @@ pub fn get_recipe<'a>(recipes: &'a RecipeRepository, name: &str) -> Result<&'a R
 
 pub fn round_string(d: Decimal) -> String {
     d.round_dp(3).to_string()
+}
+
+#[derive(Clone)]
+pub enum Rate<'a> {
+    Resource(&'a RecipeRate),
+    Recipe(&'a RecipeRate),
+}
+
+impl<'a> Rate<'a> {
+    pub fn rate(&self) -> &'a RecipeRate {
+        match self {
+            Rate::Resource(rate) => rate,
+            Rate::Recipe(rate) => rate,
+        }
+    }
 }
 
 #[derive(Clone)]

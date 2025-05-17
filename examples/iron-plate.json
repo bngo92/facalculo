@@ -1,14 +1,12 @@
 {
   "name": "iron-plate",
-  "outputs": [
-    "iron-plate"
-  ],
-  "inputs": {
-    "iron-ore": [
-      "iron-ore"
+  "module": {
+    "user": [
+      {
+        "recipe": {
+          "name": "iron-plate"
+        }
+      }
     ]
-  },
-  "overrides": {
-    "iron-plate": "iron-plate"
   }
 }

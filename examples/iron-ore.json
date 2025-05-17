@@ -1,10 +1,12 @@
 {
   "name": "iron-ore",
-  "outputs": [
-    "iron-ore"
-  ],
-  "inputs": {},
-  "overrides": {
-    "iron-ore": "iron-ore"
+  "module": {
+    "user": [
+      {
+        "resource": {
+          "name": "iron-ore"
+        }
+      }
+    ]
   }
 }
