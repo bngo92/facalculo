@@ -71,5 +71,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &recipe_rates,
         )?)?,
     )?;
+    fs::write(
+        "examples/electronic-circuit.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "electronic-circuit",
+            true,
+            &["copper-plate", "iron-plate"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>(),
+            &["copper-cable"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect(),
+            &recipe_rates,
+        )?)?,
+    )?;
+    fs::write(
+        "examples/logistic-science-pack.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "logistic-science-pack",
+            true,
+            &["iron-plate", "electronic-circuit"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>(),
+            &["iron-gear-wheel"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect(),
+            &recipe_rates,
+        )?)?,
+    )?;
     Ok(())
 }

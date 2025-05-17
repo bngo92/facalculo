@@ -1,34 +1,32 @@
 {
   "name": "logistic-science-pack",
-  "outputs": [
-    "logistic-science-pack"
-  ],
-  "nodes": {
-    "transport-belt": [
-      "iron-plate",
-      "iron-gear-wheel"
-    ],
-    "iron-gear-wheel": [
-      "iron-plate"
-    ],
-    "logistic-science-pack": [
-      "inserter",
-      "transport-belt"
-    ],
-    "inserter": [
-      "electronic-circuit",
-      "iron-gear-wheel",
-      "iron-plate"
-    ]
-  },
-  "inputs": {
-    "electronic-circuit": [
-      "inserter"
-    ],
-    "iron-plate": [
-      "inserter",
-      "iron-gear-wheel",
-      "transport-belt"
+  "module": {
+    "user": [
+      {
+        "recipe": {
+          "name": "logistic-science-pack"
+        }
+      },
+      {
+        "recipe": {
+          "name": "inserter"
+        }
+      },
+      {
+        "recipe": {
+          "name": "iron-gear-wheel"
+        }
+      },
+      {
+        "recipe": {
+          "name": "transport-belt"
+        }
+      },
+      {
+        "recipe": {
+          "name": "iron-gear-wheel"
+        }
+      }
     ]
   }
 }

@@ -1,23 +1,17 @@
 {
   "name": "electronic-circuit",
-  "outputs": [
-    "electronic-circuit"
-  ],
-  "nodes": {
-    "copper-cable": [
-      "copper-plate"
-    ],
-    "electronic-circuit": [
-      "iron-plate",
-      "copper-cable"
-    ]
-  },
-  "inputs": {
-    "copper-plate": [
-      "copper-cable"
-    ],
-    "iron-plate": [
-      "electronic-circuit"
+  "module": {
+    "user": [
+      {
+        "recipe": {
+          "name": "electronic-circuit"
+        }
+      },
+      {
+        "recipe": {
+          "name": "copper-cable"
+        }
+      }
     ]
   }
 }
