@@ -1,4 +1,4 @@
-use std::fs;
+use std::{collections::HashSet, fs};
 
 use facalculo::data::{self, Data};
 
@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "copper-ore",
             true,
             &[],
-            &["copper-ore"].into_iter().map(ToOwned::to_owned).collect(),
+            &HashSet::new(),
             &recipe_rates,
         )?)?,
     )?;
@@ -25,10 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into_iter()
                 .map(ToOwned::to_owned)
                 .collect::<Vec<_>>(),
-            &["copper-plate"]
-                .into_iter()
-                .map(ToOwned::to_owned)
-                .collect(),
+            &HashSet::new(),
             &recipe_rates,
         )?)?,
     )?;
@@ -38,7 +35,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "iron-ore",
             true,
             &[],
-            &["iron-ore"].into_iter().map(ToOwned::to_owned).collect(),
+            &HashSet::new(),
             &recipe_rates,
         )?)?,
     )?;
@@ -51,7 +48,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into_iter()
                 .map(ToOwned::to_owned)
                 .collect::<Vec<_>>(),
-            &["iron-plate"].into_iter().map(ToOwned::to_owned).collect(),
+            &HashSet::new(),
             &recipe_rates,
         )?)?,
     )?;

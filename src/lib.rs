@@ -15,7 +15,9 @@ pub fn generate(
     recipes: &HashSet<String>,
     recipe_rates: &RecipeRepository,
 ) -> Result<NamedModule, Box<dyn std::error::Error>> {
-    let mut module = ModuleBuilder::new(name.to_owned(), recipe_rates, imports, recipes);
+    let mut recipes = recipes.clone();
+    recipes.insert(name.to_owned());
+    let mut module = ModuleBuilder::new(name.to_owned(), recipe_rates, imports, &recipes);
     module.add(name, expand);
     get_recipe(recipe_rates, name)?;
     module.build()
