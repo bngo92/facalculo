@@ -1,8 +1,9 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use facalculo::{
     compute,
-    data::{self, Data},
-    module::{Graph, NamedModule, RepositoryOption},
+    data::{self, Data, RepositoryOption},
+    graph::Graph,
+    module::NamedModule,
 };
 use graphviz_rust::{
     cmd::{CommandArg, Format},
@@ -187,7 +188,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             item: items,
             rate,
         }) => {
-            let modules = files
+            // Parse arguments
+            let mut modules = files
                 .into_iter()
                 .map(
                     |f| -> Result<(String, NamedModule), Box<dyn std::error::Error>> {
@@ -195,12 +197,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Ok((module.name.clone(), module))
                     },
                 )
-                .collect::<Result<Vec<_>, _>>()?;
-            let modules: HashMap<_, _> = modules.into_iter().collect();
-            let outputs: HashSet<_> = modules
-                .values()
-                .flat_map(|m| recipe_rates.get_outputs(m))
-                .collect();
+                .collect::<Result<HashMap<_, _>, _>>()?;
             let rates = items
                 .into_iter()
                 .map(|items| {
@@ -211,26 +208,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 })
                 .collect::<Result<HashMap<_, Decimal>, Box<dyn std::error::Error>>>()?;
-            let mut required = HashMap::new();
-            let defaults = recipe_rates
-                .recipes
-                .iter()
-                .map(|(k, r)| {
-                    (
-                        (*k).to_owned(),
-                        if let Some(rate) = rate {
-                            Ok(rate)
-                        } else {
-                            Err(r.results[0].rate)
-                        },
-                    )
-                })
-                .collect();
-            for o in outputs {
-                if let Some(rate) = rates.get(o) {
-                    required.insert(o.to_owned(), *rate);
-                }
-            }
+
+            // Sort modules so outputs are processed before inputs
             let mut graph = GraphMap::<&str, (), Directed>::new();
             for (node, module) in &modules {
                 for input in recipe_rates.get_resource_inputs(module) {
@@ -252,15 +231,42 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
             }
-
-            // Sort modules so outputs are processed before inputs
+            let module_order: Vec<_> = petgraph::algo::toposort(&graph, None)
+                .unwrap()
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect();
+            let mut required = HashMap::new();
+            let outputs: HashSet<_> = modules
+                .values()
+                .flat_map(|m| recipe_rates.get_outputs(m))
+                .collect();
+            for o in outputs {
+                if let Some(rate) = rates.get(o) {
+                    required.insert(o.to_owned(), *rate);
+                }
+            }
+            let defaults = recipe_rates
+                .recipes
+                .iter()
+                .map(|(k, r)| {
+                    (
+                        (*k).to_owned(),
+                        if let Some(rate) = rate {
+                            Ok(rate)
+                        } else {
+                            Err(r.results[0].rate)
+                        },
+                    )
+                })
+                .collect();
             let mut index = 2;
-            let mut imports: HashMap<String, Vec<(usize, Decimal)>> = HashMap::new();
             let mut graphs = Vec::new();
+            let mut imports: HashMap<String, Vec<(usize, Decimal)>> = HashMap::new();
             let mut used_imports = HashSet::new();
-            for module in petgraph::algo::toposort(&graph, None).unwrap() {
+            for module in module_order {
                 let graph = Graph::from_module(
-                    modules[module].clone(),
+                    modules.remove(&module).unwrap(),
                     &required,
                     &defaults,
                     &recipe_rates,

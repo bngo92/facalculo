@@ -1,4 +1,4 @@
-use crate::module::{Edge, Graph};
+use crate::graph::{Edge, Graph};
 use petgraph::{
     visit::{Dfs, EdgeRef, IntoEdgeReferences, IntoNodeReferences, NodeIndexable, NodeRef},
     Direction,

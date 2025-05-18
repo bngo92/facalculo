@@ -1,11 +1,11 @@
-#![feature(let_chains)]
-use module::{ModuleBuilder, NamedModule, RecipeRepository};
+use data::{Rate, RecipeRepository};
+use module::{ModuleBuilder, NamedModule};
 use rust_decimal::Decimal;
-use serde_derive::Deserialize;
-use std::{collections::HashSet, fmt::Display};
+use std::collections::HashSet;
 
 pub mod compute;
 pub mod data;
+pub mod graph;
 pub mod module;
 
 pub fn generate(
@@ -43,91 +43,4 @@ pub fn get_recipe<'a>(recipes: &'a RecipeRepository, name: &str) -> Result<Rate<
 
 pub fn round_string(d: Decimal) -> String {
     d.round_dp(3).to_string()
-}
-
-#[derive(Clone)]
-pub enum Rate<'a> {
-    Resource(&'a RecipeRate),
-    Recipe(&'a RecipeRate),
-}
-
-impl<'a> Rate<'a> {
-    pub fn rate(&self) -> &'a RecipeRate {
-        match self {
-            Rate::Resource(rate) => rate,
-            Rate::Recipe(rate) => rate,
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct RecipeRate {
-    pub category: Option<Category>,
-    pub key: String,
-    pub ingredients: Vec<IngredientRate>,
-    pub results: Vec<IngredientRate>,
-}
-
-impl Display for RecipeRate {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "recipe - {} {}: {} / s",
-            round_string(self.results[0].rate),
-            self.key,
-            self.ingredients
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
-    }
-}
-
-#[derive(Clone, Copy, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum Category {
-    AdvancedCrafting,
-    CaptiveSpawnerProcess,
-    Centrifuging,
-    Chemistry,
-    ChemistryOrCryogenics,
-    Crafting,
-    CraftingWithFluid,
-    CraftingWithFluidOrMetallurgy,
-    Crushing,
-    Cryogenics,
-    CryogenicsOrAssembling,
-    CryogenicsOrChemistry,
-    Electromagnetics,
-    Electronics,
-    ElectronicsOrAssembling,
-    ElectronicsWithFluid,
-    Metallurgy,
-    MetallurgyOrAssembling,
-    OilProcessing,
-    Organic,
-    OrganicOrAssembling,
-    OrganicOrChemistry,
-    OrganicOrHandCrafting,
-    Pressing,
-    RocketBuilding,
-    Recycling,
-    RecyclingOrHandCrafting,
-    Smelting,
-    Parameters,
-    // Added category
-    Mining,
-}
-
-#[derive(Clone)]
-pub struct IngredientRate {
-    pub rate: Decimal,
-    pub name: String,
-}
-
-impl Display for IngredientRate {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", round_string(self.rate), self.name)
-    }
 }

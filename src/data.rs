@@ -1,10 +1,14 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Display,
+    str::FromStr,
+};
 
 use rust_decimal::Decimal;
 use serde_derive::Deserialize;
 use serde_json::Value;
 
-use crate::{module::RecipeRepository, Category, IngredientRate, RecipeRate};
+use crate::module::{Module, NamedModule, Structure};
 
 #[derive(Debug, Deserialize)]
 pub struct Data<'a> {
@@ -20,6 +24,42 @@ struct Recipe {
     energy_required: Option<Decimal>,
     ingredients: Option<Value>,
     results: Option<Value>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Category {
+    AdvancedCrafting,
+    CaptiveSpawnerProcess,
+    Centrifuging,
+    Chemistry,
+    ChemistryOrCryogenics,
+    Crafting,
+    CraftingWithFluid,
+    CraftingWithFluidOrMetallurgy,
+    Crushing,
+    Cryogenics,
+    CryogenicsOrAssembling,
+    CryogenicsOrChemistry,
+    Electromagnetics,
+    Electronics,
+    ElectronicsOrAssembling,
+    ElectronicsWithFluid,
+    Metallurgy,
+    MetallurgyOrAssembling,
+    OilProcessing,
+    Organic,
+    OrganicOrAssembling,
+    OrganicOrChemistry,
+    OrganicOrHandCrafting,
+    Pressing,
+    RocketBuilding,
+    Recycling,
+    RecyclingOrHandCrafting,
+    Smelting,
+    Parameters,
+    // Added category
+    Mining,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -157,5 +197,170 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
         recipes: recipe_rates,
         resources,
         recipe_outputs,
+    }
+}
+
+pub enum RepositoryOption<'a, T> {
+    None,
+    Some(T),
+    Multiple(&'a Vec<String>),
+}
+
+pub struct RecipeRepository {
+    pub recipes: HashMap<String, RecipeRate>,
+    pub resources: HashMap<String, RecipeRate>,
+    pub recipe_outputs: HashMap<String, Vec<String>>,
+}
+
+impl RecipeRepository {
+    pub fn get(&self, key: &str) -> Option<Rate> {
+        if let Some(recipe) = self.recipes.get(key) {
+            Some(Rate::Recipe(recipe))
+        } else {
+            self.resources.get(key).map(Rate::Resource)
+        }
+    }
+
+    pub fn get_options(&self, key: &str) -> RepositoryOption<'_, Rate> {
+        match self.recipe_outputs.get(key) {
+            None => RepositoryOption::None,
+            Some(recipes) if recipes.len() > 1 => RepositoryOption::Multiple(recipes),
+            Some(_) => RepositoryOption::Some(self.get(key).unwrap()),
+        }
+    }
+
+    pub fn get_inputs(&self, module: &NamedModule) -> HashSet<&str> {
+        let Module::User(structures) = &module.module;
+        let mut inputs = HashSet::new();
+        let mut outputs = HashSet::new();
+        for structure in structures {
+            match structure {
+                Structure::Recipe(recipe) => {
+                    inputs.extend(
+                        self.recipes[&recipe.name]
+                            .ingredients
+                            .iter()
+                            .map(|i| i.name.as_str()),
+                    );
+                    outputs.extend(
+                        self.recipes[&recipe.name]
+                            .results
+                            .iter()
+                            .map(|i| i.name.as_str()),
+                    );
+                }
+                Structure::Resource(resource) => {
+                    outputs.insert(self.resources[&resource.name].key.as_str());
+                }
+            }
+        }
+        inputs.difference(&outputs).copied().collect()
+    }
+
+    pub fn get_resource_inputs(&self, module: &NamedModule) -> HashSet<&str> {
+        let Module::User(structures) = &module.module;
+        let mut inputs = HashSet::new();
+        let mut outputs = HashSet::new();
+        for structure in structures {
+            match structure {
+                Structure::Recipe(recipe) => {
+                    inputs.extend(
+                        self.recipes[&recipe.name]
+                            .ingredients
+                            .iter()
+                            .map(|i| i.name.as_str()),
+                    );
+                    outputs.extend(
+                        self.recipes[&recipe.name]
+                            .results
+                            .iter()
+                            .map(|i| i.name.as_str()),
+                    );
+                }
+                Structure::Resource(resource) => {
+                    inputs.insert(self.resources[&resource.name].key.as_str());
+                }
+            }
+        }
+        inputs.difference(&outputs).copied().collect()
+    }
+
+    pub fn get_outputs(&self, module: &NamedModule) -> HashSet<&str> {
+        let Module::User(structures) = &module.module;
+        let mut inputs = HashSet::new();
+        let mut outputs = HashSet::new();
+        for structure in structures {
+            match structure {
+                Structure::Recipe(recipe) => {
+                    inputs.extend(
+                        self.recipes[&recipe.name]
+                            .ingredients
+                            .iter()
+                            .map(|i| i.name.as_str()),
+                    );
+                    outputs.extend(
+                        self.recipes[&recipe.name]
+                            .results
+                            .iter()
+                            .map(|i| i.name.as_str()),
+                    );
+                }
+                Structure::Resource(resource) => {
+                    outputs.insert(self.resources[&resource.name].key.as_str());
+                }
+            }
+        }
+        outputs.difference(&inputs).copied().collect()
+    }
+}
+
+#[derive(Clone)]
+pub enum Rate<'a> {
+    Resource(&'a RecipeRate),
+    Recipe(&'a RecipeRate),
+}
+
+impl<'a> Rate<'a> {
+    pub fn rate(&self) -> &'a RecipeRate {
+        match self {
+            Rate::Resource(rate) => rate,
+            Rate::Recipe(rate) => rate,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct RecipeRate {
+    pub category: Option<Category>,
+    pub key: String,
+    pub ingredients: Vec<IngredientRate>,
+    pub results: Vec<IngredientRate>,
+}
+
+impl Display for RecipeRate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "recipe - {} {}: {} / s",
+            crate::round_string(self.results[0].rate),
+            self.key,
+            self.ingredients
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+}
+
+#[derive(Clone)]
+pub struct IngredientRate {
+    pub rate: Decimal,
+    pub name: String,
+}
+
+impl Display for IngredientRate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", crate::round_string(self.rate), self.name)
     }
 }
