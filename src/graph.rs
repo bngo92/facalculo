@@ -49,14 +49,14 @@ impl<'a> Graph<'a> {
             )]
         } else {
             recipes
-                .get_outputs(&module)
+                .get_outputs(&module.module)
                 .iter()
                 .filter_map(|o| recipes.get(o).map(|r| (*o, r)))
                 .collect()
         };
         for (item, recipe) in outputs {
             graph.build_module_node(
-                &module,
+                &module.module,
                 item,
                 *required.get(item).unwrap_or_else(|| match &defaults[item] {
                     Ok(rate) => rate,
@@ -72,13 +72,13 @@ impl<'a> Graph<'a> {
                 belt,
             );
         }
-        graph.outputs = recipes.get_outputs(&module);
+        graph.outputs = recipes.get_outputs(&module.module);
         graph
     }
 
     fn build_module_node(
         &mut self,
-        module: &NamedModule,
+        module: &Module,
         ingredient: &str,
         required: Decimal,
         recipe: &RecipeRate,
@@ -107,7 +107,7 @@ impl<'a> Graph<'a> {
                     RepositoryOption::Some(recipe) => recipe.rate(),
                     RepositoryOption::Multiple(recipes) => {
                         let recipes: HashSet<_> = recipes.iter().collect();
-                        let Module::User(structures) = &module.module;
+                        let Module::User { structures } = module;
                         let recipe = structures
                             .iter()
                             .map(|s| match s {

@@ -1,12 +1,14 @@
 {
   "name": "iron-ore",
   "module": {
-    "user": [
-      {
-        "resource": {
-          "name": "iron-ore"
+    "user": {
+      "structures": [
+        {
+          "resource": {
+            "name": "iron-ore"
+          }
         }
-      }
-    ]
+      ]
+    }
   }
 }

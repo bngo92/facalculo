@@ -1,12 +1,14 @@
 {
   "name": "sulfur",
   "module": {
-    "user": [
-      {
-        "recipe": {
-          "name": "sulfur"
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "sulfur"
+          }
         }
-      }
-    ]
+      ]
+    }
   }
 }

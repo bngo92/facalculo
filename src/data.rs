@@ -8,7 +8,7 @@ use rust_decimal::Decimal;
 use serde_derive::Deserialize;
 use serde_json::Value;
 
-use crate::module::{Module, NamedModule, Structure};
+use crate::module::{Module, Structure};
 
 #[derive(Debug, Deserialize)]
 pub struct Data<'a> {
@@ -229,8 +229,8 @@ impl RecipeRepository {
         }
     }
 
-    pub fn get_inputs(&self, module: &NamedModule) -> HashSet<&str> {
-        let Module::User(structures) = &module.module;
+    pub fn get_inputs(&self, module: &Module) -> HashSet<&str> {
+        let Module::User { structures } = module;
         let mut inputs = HashSet::new();
         let mut outputs = HashSet::new();
         for structure in structures {
@@ -257,8 +257,8 @@ impl RecipeRepository {
         inputs.difference(&outputs).copied().collect()
     }
 
-    pub fn get_resource_inputs(&self, module: &NamedModule) -> HashSet<&str> {
-        let Module::User(structures) = &module.module;
+    pub fn get_resource_inputs(&self, module: &Module) -> HashSet<&str> {
+        let Module::User { structures } = module;
         let mut inputs = HashSet::new();
         let mut outputs = HashSet::new();
         for structure in structures {
@@ -285,8 +285,8 @@ impl RecipeRepository {
         inputs.difference(&outputs).copied().collect()
     }
 
-    pub fn get_outputs(&self, module: &NamedModule) -> HashSet<&str> {
-        let Module::User(structures) = &module.module;
+    pub fn get_outputs(&self, module: &Module) -> HashSet<&str> {
+        let Module::User { structures } = module;
         let mut inputs = HashSet::new();
         let mut outputs = HashSet::new();
         for structure in structures {

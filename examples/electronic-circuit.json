@@ -1,17 +1,19 @@
 {
   "name": "electronic-circuit",
   "module": {
-    "user": [
-      {
-        "recipe": {
-          "name": "electronic-circuit"
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "electronic-circuit"
+          }
+        },
+        {
+          "recipe": {
+            "name": "copper-cable"
+          }
         }
-      },
-      {
-        "recipe": {
-          "name": "copper-cable"
-        }
-      }
-    ]
+      ]
+    }
   }
 }

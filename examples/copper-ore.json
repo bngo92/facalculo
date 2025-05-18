@@ -1,12 +1,14 @@
 {
   "name": "copper-ore",
   "module": {
-    "user": [
-      {
-        "resource": {
-          "name": "copper-ore"
+    "user": {
+      "structures": [
+        {
+          "resource": {
+            "name": "copper-ore"
+          }
         }
-      }
-    ]
+      ]
+    }
   }
 }

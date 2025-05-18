@@ -1,12 +1,14 @@
 {
   "name": "crude-oil",
   "module": {
-    "user": [
-      {
-        "resource": {
-          "name": "crude-oil"
+    "user": {
+      "structures": [
+        {
+          "resource": {
+            "name": "crude-oil"
+          }
         }
-      }
-    ]
+      ]
+    }
   }
 }

@@ -87,7 +87,9 @@ impl<'a> ModuleBuilder<'_> {
     pub fn build(self) -> NamedModule {
         NamedModule {
             name: self.name,
-            module: Module::User(self.structures),
+            module: Module::User {
+                structures: self.structures,
+            },
         }
     }
 }
@@ -101,7 +103,7 @@ pub struct NamedModule {
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Module {
-    User(Vec<Structure>),
+    User { structures: Vec<Structure> },
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

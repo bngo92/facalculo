@@ -1,27 +1,29 @@
 {
   "name": "chemical-science-pack",
   "module": {
-    "user": [
-      {
-        "recipe": {
-          "name": "chemical-science-pack"
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "chemical-science-pack"
+          }
+        },
+        {
+          "recipe": {
+            "name": "engine-unit"
+          }
+        },
+        {
+          "recipe": {
+            "name": "iron-gear-wheel"
+          }
+        },
+        {
+          "recipe": {
+            "name": "pipe"
+          }
         }
-      },
-      {
-        "recipe": {
-          "name": "engine-unit"
-        }
-      },
-      {
-        "recipe": {
-          "name": "iron-gear-wheel"
-        }
-      },
-      {
-        "recipe": {
-          "name": "pipe"
-        }
-      }
-    ]
+      ]
+    }
   }
 }

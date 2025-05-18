@@ -1,12 +1,14 @@
 {
   "name": "coal",
   "module": {
-    "user": [
-      {
-        "resource": {
-          "name": "coal"
+    "user": {
+      "structures": [
+        {
+          "resource": {
+            "name": "coal"
+          }
         }
-      }
-    ]
+      ]
+    }
   }
 }

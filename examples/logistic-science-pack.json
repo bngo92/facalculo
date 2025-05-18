@@ -1,32 +1,34 @@
 {
   "name": "logistic-science-pack",
   "module": {
-    "user": [
-      {
-        "recipe": {
-          "name": "logistic-science-pack"
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "logistic-science-pack"
+          }
+        },
+        {
+          "recipe": {
+            "name": "inserter"
+          }
+        },
+        {
+          "recipe": {
+            "name": "iron-gear-wheel"
+          }
+        },
+        {
+          "recipe": {
+            "name": "transport-belt"
+          }
+        },
+        {
+          "recipe": {
+            "name": "iron-gear-wheel"
+          }
         }
-      },
-      {
-        "recipe": {
-          "name": "inserter"
-        }
-      },
-      {
-        "recipe": {
-          "name": "iron-gear-wheel"
-        }
-      },
-      {
-        "recipe": {
-          "name": "transport-belt"
-        }
-      },
-      {
-        "recipe": {
-          "name": "iron-gear-wheel"
-        }
-      }
-    ]
+      ]
+    }
   }
 }

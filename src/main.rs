@@ -106,7 +106,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let module = serde_json::from_slice::<NamedModule>(&fs::read(import)?)?;
                     imports.extend(
                         recipe_rates
-                            .get_outputs(&module)
+                            .get_outputs(&module.module)
                             .into_iter()
                             .map(ToOwned::to_owned),
                     );
@@ -191,12 +191,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Parse arguments
             let mut modules = files
                 .into_iter()
-                .map(
-                    |f| -> Result<(String, NamedModule), Box<dyn std::error::Error>> {
-                        let module: NamedModule = serde_json::from_slice(&fs::read(f)?)?;
-                        Ok((module.name.clone(), module))
-                    },
-                )
+                .map(|f| -> Result<_, Box<dyn std::error::Error>> {
+                    let module: NamedModule = serde_json::from_slice(&fs::read(f)?)?;
+                    Ok((module.name.clone(), module))
+                })
                 .collect::<Result<HashMap<_, _>, _>>()?;
             let rates = items
                 .into_iter()
@@ -212,7 +210,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Sort modules so outputs are processed before inputs
             let mut graph = GraphMap::<&str, (), Directed>::new();
             for (node, module) in &modules {
-                for input in recipe_rates.get_resource_inputs(module) {
+                for input in recipe_rates.get_resource_inputs(&module.module) {
                     if node != input {
                         match recipe_rates.get_options(input) {
                             RepositoryOption::None => {}
@@ -239,7 +237,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut required = HashMap::new();
             let outputs: HashSet<_> = modules
                 .values()
-                .flat_map(|m| recipe_rates.get_outputs(m))
+                .flat_map(|m| recipe_rates.get_outputs(&m.module))
                 .collect();
             for o in outputs {
                 if let Some(rate) = rates.get(o) {

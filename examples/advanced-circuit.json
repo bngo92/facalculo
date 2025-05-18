@@ -1,17 +1,19 @@
 {
   "name": "advanced-circuit",
   "module": {
-    "user": [
-      {
-        "recipe": {
-          "name": "advanced-circuit"
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "advanced-circuit"
+          }
+        },
+        {
+          "recipe": {
+            "name": "copper-cable"
+          }
         }
-      },
-      {
-        "recipe": {
-          "name": "copper-cable"
-        }
-      }
-    ]
+      ]
+    }
   }
 }

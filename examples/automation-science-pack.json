@@ -1,17 +1,19 @@
 {
   "name": "automation-science-pack",
   "module": {
-    "user": [
-      {
-        "recipe": {
-          "name": "automation-science-pack"
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "automation-science-pack"
+          }
+        },
+        {
+          "recipe": {
+            "name": "iron-gear-wheel"
+          }
         }
-      },
-      {
-        "recipe": {
-          "name": "iron-gear-wheel"
-        }
-      }
-    ]
+      ]
+    }
   }
 }

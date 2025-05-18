@@ -1,12 +1,14 @@
 {
   "name": "water",
   "module": {
-    "user": [
-      {
-        "resource": {
-          "name": "water"
+    "user": {
+      "structures": [
+        {
+          "resource": {
+            "name": "water"
+          }
         }
-      }
-    ]
+      ]
+    }
   }
 }

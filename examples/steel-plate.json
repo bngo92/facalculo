@@ -1,12 +1,14 @@
 {
   "name": "steel-plate",
   "module": {
-    "user": [
-      {
-        "recipe": {
-          "name": "steel-plate"
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "steel-plate"
+          }
         }
-      }
-    ]
+      ]
+    }
   }
 }
