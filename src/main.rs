@@ -1,8 +1,8 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use facalculo::{
-    compute, data,
-    data::Data,
-    module::{Graph, NamedModule},
+    compute,
+    data::{self, Data},
+    module::{Graph, NamedModule, RepositoryOption},
 };
 use graphviz_rust::{
     cmd::{CommandArg, Format},
@@ -233,9 +233,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             let mut graph = GraphMap::<&str, (), Directed>::new();
             for (node, module) in &modules {
-                for input in recipe_rates.get_inputs(module) {
+                for input in recipe_rates.get_resource_inputs(module) {
                     if node != input {
-                        graph.add_edge(node, input, ());
+                        match recipe_rates.get_options(input) {
+                            RepositoryOption::None => {}
+                            RepositoryOption::Some(recipe) => {
+                                graph.add_edge(node, &recipe.rate().key, ());
+                            }
+                            RepositoryOption::Multiple(recipes) => {
+                                for recipe in recipes {
+                                    if modules.contains_key(recipe) {
+                                        graph.add_edge(node, recipe, ());
+                                        break;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

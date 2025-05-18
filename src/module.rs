@@ -157,6 +157,7 @@ pub struct Graph<'a> {
     pub graph: GraphType,
     pub recipes: &'a RecipeRepository,
     pub imports: HashMap<String, Vec<(usize, Decimal)>>,
+    pub outputs: HashSet<&'a str>,
     index: usize,
 }
 
@@ -168,6 +169,7 @@ impl<'a> Graph<'a> {
             recipes,
             imports: HashMap::new(),
             index,
+            outputs: HashSet::new(),
         }
     }
 
@@ -181,26 +183,37 @@ impl<'a> Graph<'a> {
     ) -> Graph<'a> {
         let mut graph = Graph::new(recipes, index);
         graph.name = module.name.clone();
-        for item in recipes.get_outputs(&module) {
-            if let Some(recipe) = recipes.get(item) {
-                graph.build_module_node(
-                    &module,
-                    &recipe.rate().key,
-                    *required.get(item).unwrap_or_else(|| match &defaults[item] {
-                        Ok(rate) => rate,
-                        Err(rate) => {
-                            eprintln!(
-                                "Using {} for {item} (1 assembler)",
-                                crate::round_string(*rate)
-                            );
-                            rate
-                        }
-                    }),
-                    recipe.rate(),
-                    belt,
-                );
-            }
+        let outputs = if module.name == "advanced-oil-processing" {
+            vec![(
+                "petroleum-gas",
+                recipes.get("advanced-oil-processing").unwrap(),
+            )]
+        } else {
+            recipes
+                .get_outputs(&module)
+                .iter()
+                .filter_map(|o| recipes.get(o).map(|r| (*o, r)))
+                .collect()
+        };
+        for (item, recipe) in outputs {
+            graph.build_module_node(
+                &module,
+                item,
+                *required.get(item).unwrap_or_else(|| match &defaults[item] {
+                    Ok(rate) => rate,
+                    Err(rate) => {
+                        eprintln!(
+                            "Using {} for {item} (1 assembler)",
+                            crate::round_string(*rate)
+                        );
+                        rate
+                    }
+                }),
+                recipe.rate(),
+                belt,
+            );
         }
+        graph.outputs = recipes.get_outputs(&module);
         graph
     }
 
@@ -503,6 +516,34 @@ impl RecipeRepository {
                 }
                 Structure::Resource(resource) => {
                     outputs.insert(self.resources[&resource.name].key.as_str());
+                }
+            }
+        }
+        inputs.difference(&outputs).copied().collect()
+    }
+
+    pub fn get_resource_inputs(&self, module: &NamedModule) -> HashSet<&str> {
+        let Module::User(structures) = &module.module;
+        let mut inputs = HashSet::new();
+        let mut outputs = HashSet::new();
+        for structure in structures {
+            match structure {
+                Structure::Recipe(recipe) => {
+                    inputs.extend(
+                        self.recipes[&recipe.name]
+                            .ingredients
+                            .iter()
+                            .map(|i| i.name.as_str()),
+                    );
+                    outputs.extend(
+                        self.recipes[&recipe.name]
+                            .results
+                            .iter()
+                            .map(|i| i.name.as_str()),
+                    );
+                }
+                Structure::Resource(resource) => {
+                    inputs.insert(self.resources[&resource.name].key.as_str());
                 }
             }
         }

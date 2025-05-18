@@ -66,6 +66,7 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
             }
             let speed = match r.category {
                 None
+                | Some(Category::AdvancedCrafting)
                 | Some(Category::Crafting)
                 | Some(Category::CraftingWithFluid)
                 | Some(Category::Electronics)
