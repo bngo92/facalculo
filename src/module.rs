@@ -1,5 +1,5 @@
 use crate::{
-    data::{RecipeRepository, RepositoryOption},
+    data::{RecipeRate, RecipeRepository, RepositoryOption},
     Rate,
 };
 use serde_derive::{Deserialize, Serialize};
@@ -36,7 +36,9 @@ impl<'a> ModuleBuilder<'_> {
                 self.structures.push(Structure::Recipe(Recipe {
                     name: recipe.key.clone(),
                 }));
-                self.add_node(key, expand).unwrap();
+                if expand {
+                    self.add_node(recipe).unwrap();
+                }
             }
             Rate::Resource(resource) => {
                 self.structures.push(Structure::Resource(Resource {
@@ -46,64 +48,35 @@ impl<'a> ModuleBuilder<'_> {
         }
     }
 
-    fn add_node(&mut self, key: &str, expand: bool) -> Result<(), Box<dyn std::error::Error>> {
-        if expand {
-            match self.repository.get_options(key) {
-                RepositoryOption::None => {}
-                RepositoryOption::Some(rate) => match rate {
-                    Rate::Recipe(recipe) => {
-                        for edge in &recipe.ingredients {
-                            let edge = &edge.name;
-                            if !self.imports.contains(edge) {
-                                self.structures
-                                    .push(match self.repository.get(edge).unwrap() {
-                                        Rate::Recipe(recipe) => Structure::Recipe(Recipe {
-                                            name: recipe.key.clone(),
-                                        }),
-                                        Rate::Resource(recipe) => Structure::Resource(Resource {
-                                            name: recipe.key.clone(),
-                                        }),
-                                    });
-                                self.add_node(edge, expand)?;
-                            }
+    fn add_node(&mut self, recipe: &RecipeRate) -> Result<(), Box<dyn std::error::Error>> {
+        for edge in &recipe.ingredients {
+            let edge = &edge.name;
+            if !self.imports.contains(edge) {
+                let rate = match self.repository.get_options(edge) {
+                    RepositoryOption::None => continue,
+                    RepositoryOption::Some(rate) => rate,
+                    // Users are required to specify a recipe for an item if there are multiple recipes
+                    // that produce the item
+                    RepositoryOption::Multiple(options) => {
+                        let options: HashSet<_> = options.iter().cloned().collect();
+                        let recipes: Vec<_> = options.intersection(self.recipes).collect();
+                        if recipes.is_empty() {
+                            Err(format!("Multiple recipes were found for {edge}"))?
                         }
+                        self.repository.get(recipes[0]).unwrap()
+                    }
+                };
+                match rate {
+                    Rate::Recipe(recipe) => {
+                        self.structures.push(Structure::Recipe(Recipe {
+                            name: recipe.key.clone(),
+                        }));
+                        self.add_node(recipe)?;
                     }
                     Rate::Resource(resource) => {
-                        if !self.imports.contains(&resource.key) {
-                            self.structures.push(Structure::Resource(Resource {
-                                name: resource.key.to_owned(),
-                            }));
-                        }
-                    }
-                },
-                // Users are required to specify a recipe for an item if there are multiple recipes
-                // that produce the item
-                RepositoryOption::Multiple(options) => {
-                    let options: HashSet<_> = options.iter().cloned().collect();
-                    let recipes: Vec<_> = options.intersection(self.recipes).collect();
-                    if recipes.is_empty() {
-                        Err(format!("Multiple recipes were found for {key}"))?
-                    }
-                    let rate = &self.repository.get(recipes[0]).unwrap();
-                    match rate {
-                        Rate::Recipe(recipe) => {
-                            for edge in &recipe.ingredients {
-                                let edge = &edge.name;
-                                if !self.imports.contains(edge) {
-                                    self.structures.push(Structure::Recipe(Recipe {
-                                        name: recipe.key.clone(),
-                                    }));
-                                    self.add_node(edge, expand)?;
-                                }
-                            }
-                        }
-                        Rate::Resource(resource) => {
-                            if !self.imports.contains(&resource.key) {
-                                self.structures.push(Structure::Resource(Resource {
-                                    name: resource.key.to_owned(),
-                                }));
-                            }
-                        }
+                        self.structures.push(Structure::Resource(Resource {
+                            name: resource.key.to_owned(),
+                        }));
                     }
                 }
             }
@@ -111,11 +84,11 @@ impl<'a> ModuleBuilder<'_> {
         Ok(())
     }
 
-    pub fn build(self) -> Result<NamedModule, Box<dyn std::error::Error>> {
-        Ok(NamedModule {
+    pub fn build(self) -> NamedModule {
+        NamedModule {
             name: self.name,
             module: Module::User(self.structures),
-        })
+        }
     }
 }
 

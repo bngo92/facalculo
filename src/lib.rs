@@ -20,7 +20,7 @@ pub fn generate(
     let mut module = ModuleBuilder::new(name.to_owned(), recipe_rates, imports, &recipes);
     module.add(name, expand);
     get_recipe(recipe_rates, name)?;
-    module.build()
+    Ok(module.build())
 }
 
 pub fn get_recipe<'a>(recipes: &'a RecipeRepository, name: &str) -> Result<Rate<'a>, String> {

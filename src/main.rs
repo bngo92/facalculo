@@ -316,7 +316,7 @@ mod tests {
         let mut builder = ModuleBuilder::new(String::new(), &recipe_rates, &[], &recipes);
         builder.add("advanced-circuit", true);
         let graph = Graph::from_module(
-            builder.build().unwrap(),
+            builder.build(),
             &HashMap::from_iter([(
                 "advanced-circuit".to_owned(),
                 recipe_rates.get("advanced-circuit").unwrap().rate().results[0].rate,
@@ -399,7 +399,7 @@ mod tests {
         let mut builder = ModuleBuilder::new(String::new(), &recipe_rates, &[], &recipes);
         builder.add("advanced-circuit", true);
         let mut graph = Graph::from_module(
-            builder.build().unwrap(),
+            builder.build(),
             &HashMap::from_iter([(
                 "advanced-circuit".to_owned(),
                 recipe_rates.get("advanced-circuit").unwrap().rate().results[0].rate,
@@ -475,10 +475,11 @@ mod tests {
         let data: Data = serde_json::from_slice(b).unwrap();
         let recipe_rates = data::calculate_rates(&data, 1);
         let recipes = get_recipes();
-        let mut builder = ModuleBuilder::new(String::new(), &recipe_rates, &[], &recipes);
+        let mut builder =
+            ModuleBuilder::new("advanced-circuit".to_owned(), &recipe_rates, &[], &recipes);
         builder.add("advanced-circuit", true);
         let mut graph = Graph::from_module(
-            builder.build().unwrap(),
+            builder.build(),
             &HashMap::from_iter([(
                 "advanced-circuit".to_owned(),
                 recipe_rates
