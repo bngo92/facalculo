@@ -1,0 +1,12 @@
+{
+  "name": "water",
+  "module": {
+    "user": [
+      {
+        "resource": {
+          "name": "water"
+        }
+      }
+    ]
+  }
+}

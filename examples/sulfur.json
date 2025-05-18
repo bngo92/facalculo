@@ -1,0 +1,12 @@
+{
+  "name": "sulfur",
+  "module": {
+    "user": [
+      {
+        "recipe": {
+          "name": "sulfur"
+        }
+      }
+    ]
+  }
+}

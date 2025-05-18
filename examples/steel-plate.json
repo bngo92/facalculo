@@ -1,0 +1,12 @@
+{
+  "name": "steel-plate",
+  "module": {
+    "user": [
+      {
+        "recipe": {
+          "name": "steel-plate"
+        }
+      }
+    ]
+  }
+}

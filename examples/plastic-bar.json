@@ -1,0 +1,12 @@
+{
+  "name": "plastic-bar",
+  "module": {
+    "user": [
+      {
+        "recipe": {
+          "name": "plastic-bar"
+        }
+      }
+    ]
+  }
+}

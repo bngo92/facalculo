@@ -138,7 +138,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         serde_json::to_string_pretty(&facalculo::generate(
             "advanced-oil-processing",
             true,
-            &["crude-oil"]
+            &["water", "crude-oil"]
                 .into_iter()
                 .map(ToOwned::to_owned)
                 .collect::<Vec<_>>(),

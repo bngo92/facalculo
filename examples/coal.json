@@ -1,0 +1,12 @@
+{
+  "name": "coal",
+  "module": {
+    "user": [
+      {
+        "resource": {
+          "name": "coal"
+        }
+      }
+    ]
+  }
+}
