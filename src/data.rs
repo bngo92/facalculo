@@ -230,7 +230,9 @@ impl RecipeRepository {
     }
 
     pub fn get_inputs(&self, module: &Module) -> HashSet<&str> {
-        let Module::User { structures } = module;
+        let Module::User { structures } = module else {
+            return HashSet::new();
+        };
         let mut inputs = HashSet::new();
         let mut outputs = HashSet::new();
         for structure in structures {
@@ -258,7 +260,10 @@ impl RecipeRepository {
     }
 
     pub fn get_resource_inputs(&self, module: &Module) -> HashSet<&str> {
-        let Module::User { structures } = module;
+        let structures = match module {
+            Module::User { structures } => structures,
+            Module::AdvancedOilProcessing {} => return HashSet::from(["water", "crude-oil"]),
+        };
         let mut inputs = HashSet::new();
         let mut outputs = HashSet::new();
         for structure in structures {
@@ -286,7 +291,12 @@ impl RecipeRepository {
     }
 
     pub fn get_outputs(&self, module: &Module) -> HashSet<&str> {
-        let Module::User { structures } = module;
+        let structures = match module {
+            Module::User { structures } => structures,
+            Module::AdvancedOilProcessing {} => {
+                return HashSet::from(["heavy-oil", "light-oil", "petroleum-gas"])
+            }
+        };
         let mut inputs = HashSet::new();
         let mut outputs = HashSet::new();
         for structure in structures {

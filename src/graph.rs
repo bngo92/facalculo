@@ -2,8 +2,12 @@ use crate::{
     data::{Category, Rate, RecipeRate, RecipeRepository, RepositoryOption},
     module::{Module, NamedModule, Structure},
 };
+use nalgebra::{Matrix3, Matrix3x1};
 use petgraph::{algo, graph::NodeIndex, stable_graph::StableGraph, visit::EdgeRef, Direction};
-use rust_decimal::Decimal;
+use rust_decimal::{
+    prelude::{FromPrimitive, ToPrimitive},
+    Decimal,
+};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     fmt::Display,
@@ -42,35 +46,92 @@ impl<'a> Graph<'a> {
     ) -> Graph<'a> {
         let mut graph = Graph::new(recipes, index);
         graph.name = module.name.clone();
-        let outputs = if module.name == "advanced-oil-processing" {
-            vec![(
-                "petroleum-gas",
-                recipes.get("advanced-oil-processing").unwrap(),
-            )]
-        } else {
-            recipes
-                .get_outputs(&module.module)
-                .iter()
-                .filter_map(|o| recipes.get(o).map(|r| (*o, r)))
-                .collect()
-        };
-        for (item, recipe) in outputs {
-            graph.build_module_node(
-                &module.module,
-                item,
-                *required.get(item).unwrap_or_else(|| match &defaults[item] {
-                    Ok(rate) => rate,
-                    Err(rate) => {
-                        eprintln!(
-                            "Using {} for {item} (1 assembler)",
-                            crate::round_string(*rate)
-                        );
-                        rate
+        match module.module {
+            Module::User { .. } => {
+                let outputs: Vec<_> = recipes
+                    .get_outputs(&module.module)
+                    .iter()
+                    .filter_map(|o| recipes.get(o).map(|r| (*o, r)))
+                    .collect();
+                for (item, recipe) in outputs {
+                    graph.build_module_node(
+                        &module.module,
+                        item,
+                        *required.get(item).unwrap_or_else(|| match &defaults[item] {
+                            Ok(rate) => rate,
+                            Err(rate) => {
+                                eprintln!(
+                                    "Using {} for {item} (1 assembler)",
+                                    crate::round_string(*rate)
+                                );
+                                rate
+                            }
+                        }),
+                        recipe.rate(),
+                        belt,
+                    );
+                }
+            }
+            Module::AdvancedOilProcessing {} => {
+                let heavy_oil = required
+                    .get("heavy-oil")
+                    .and_then(|d| d.to_f64())
+                    .unwrap_or_default();
+                let light_oil = required
+                    .get("light-oil")
+                    .and_then(|d| d.to_f64())
+                    .unwrap_or_default();
+                let petroleum_gas = required
+                    .get("petroleum-gas")
+                    .and_then(|d| d.to_f64())
+                    .unwrap_or_default();
+                let a = Matrix3::from_iterator(
+                    vec![5., 9., 11., -20., 15., 0., 0., -15., 10.].into_iter(),
+                );
+                let advanced = Matrix3x1::new(heavy_oil, light_oil, petroleum_gas);
+                let solution = a.lu().solve(&advanced).unwrap();
+                let [advanced_oil_processing, heavy_oil_cracking, light_oil_cracking] =
+                    solution.as_slice()
+                else {
+                    unimplemented!()
+                };
+                let mut last: Option<(NodeIndex, &str)> = None;
+                for (recipe, ratio) in [
+                    (
+                        recipes.get("advanced-oil-processing").unwrap().rate(),
+                        advanced_oil_processing,
+                    ),
+                    (
+                        recipes.get("heavy-oil-cracking").unwrap().rate(),
+                        heavy_oil_cracking,
+                    ),
+                    (
+                        recipes.get("light-oil-cracking").unwrap().rate(),
+                        light_oil_cracking,
+                    ),
+                ] {
+                    let ratio = Decimal::from_f64(*ratio).unwrap();
+                    let node = graph.graph.add_node(Node {
+                        required: Some(ratio),
+                        name: recipe.key.to_owned(),
+                    });
+                    for edge in graph.get_ingredients(recipe, ratio, belt) {
+                        match last {
+                            Some((last, item)) if edge.item == *item => {
+                                graph.graph.add_edge(node, last, edge);
+                            }
+                            _ => {
+                                graph
+                                    .imports
+                                    .entry(edge.item.to_owned())
+                                    .or_default()
+                                    .push((graph.index + node.index(), edge.required));
+                            }
+                        }
                     }
-                }),
-                recipe.rate(),
-                belt,
-            );
+                    last = Some((node, &recipe.results[0].name));
+                }
+            }
         }
         graph.outputs = recipes.get_outputs(&module.module);
         graph
@@ -107,7 +168,9 @@ impl<'a> Graph<'a> {
                     RepositoryOption::Some(recipe) => recipe.rate(),
                     RepositoryOption::Multiple(recipes) => {
                         let recipes: HashSet<_> = recipes.iter().collect();
-                        let Module::User { structures } = module;
+                        let Module::User { structures } = module else {
+                            continue;
+                        };
                         let recipe = structures
                             .iter()
                             .map(|s| match s {

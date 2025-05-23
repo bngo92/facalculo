@@ -1,14 +1,6 @@
 {
   "name": "advanced-oil-processing",
   "module": {
-    "user": {
-      "structures": [
-        {
-          "recipe": {
-            "name": "advanced-oil-processing"
-          }
-        }
-      ]
-    }
+    "advanced-oil-processing": {}
   }
 }

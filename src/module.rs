@@ -101,9 +101,10 @@ pub struct NamedModule {
 }
 
 #[derive(Clone, Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "kebab-case")]
 pub enum Module {
     User { structures: Vec<Structure> },
+    AdvancedOilProcessing {},
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
