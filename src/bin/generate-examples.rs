@@ -1,6 +1,9 @@
 use std::{collections::HashSet, fs};
 
-use facalculo::data::{self, Data};
+use facalculo::{
+    data::{self, Data},
+    module::{Module, NamedModule},
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let b = include_bytes!("../data-raw-dump.json");
@@ -135,16 +138,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     fs::write(
         "examples/advanced-oil-processing.json",
-        serde_json::to_string_pretty(&facalculo::generate(
-            "advanced-oil-processing",
-            true,
-            &["water", "crude-oil"]
-                .into_iter()
-                .map(ToOwned::to_owned)
-                .collect::<Vec<_>>(),
-            &HashSet::new(),
-            &recipe_rates,
-        )?)?,
+        serde_json::to_string_pretty(&NamedModule {
+            name: "advanced-oil-processing".to_owned(),
+            module: Module::AdvancedOilProcessing {},
+        })?,
     )?;
     fs::write(
         "examples/coal.json",
@@ -218,6 +215,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into_iter()
                 .map(ToOwned::to_owned)
                 .collect(),
+            &recipe_rates,
+        )?)?,
+    )?;
+    fs::write(
+        "examples/stone.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "stone",
+            true,
+            &[],
+            &HashSet::new(),
+            &recipe_rates,
+        )?)?,
+    )?;
+    fs::write(
+        "examples/production-science-pack.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "production-science-pack",
+            true,
+            &[
+                "iron-plate",
+                "electronic-circuit",
+                "steel-plate",
+                "plastic-bar",
+                "advanced-circuit",
+                "stone",
+            ]
+            .into_iter()
+            .map(ToOwned::to_owned)
+            .collect::<Vec<_>>(),
+            &["iron-stick"].into_iter().map(ToOwned::to_owned).collect(),
             &recipe_rates,
         )?)?,
     )?;

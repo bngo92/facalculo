@@ -1,0 +1,14 @@
+{
+  "name": "stone",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "resource": {
+            "name": "stone"
+          }
+        }
+      ]
+    }
+  }
+}

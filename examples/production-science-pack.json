@@ -1,0 +1,39 @@
+{
+  "name": "production-science-pack",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "production-science-pack"
+          }
+        },
+        {
+          "recipe": {
+            "name": "electric-furnace"
+          }
+        },
+        {
+          "recipe": {
+            "name": "stone-brick"
+          }
+        },
+        {
+          "recipe": {
+            "name": "productivity-module"
+          }
+        },
+        {
+          "recipe": {
+            "name": "rail"
+          }
+        },
+        {
+          "recipe": {
+            "name": "iron-stick"
+          }
+        }
+      ]
+    }
+  }
+}
