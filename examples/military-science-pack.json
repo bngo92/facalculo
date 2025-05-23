@@ -1,0 +1,39 @@
+{
+  "name": "military-science-pack",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "military-science-pack"
+          }
+        },
+        {
+          "recipe": {
+            "name": "piercing-rounds-magazine"
+          }
+        },
+        {
+          "recipe": {
+            "name": "firearm-magazine"
+          }
+        },
+        {
+          "recipe": {
+            "name": "grenade"
+          }
+        },
+        {
+          "recipe": {
+            "name": "stone-wall"
+          }
+        },
+        {
+          "recipe": {
+            "name": "stone-brick"
+          }
+        }
+      ]
+    }
+  }
+}

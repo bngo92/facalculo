@@ -117,6 +117,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?)?,
     )?;
     fs::write(
+        "examples/coal.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "coal",
+            true,
+            &[],
+            &HashSet::new(),
+            &recipe_rates,
+        )?)?,
+    )?;
+    fs::write(
+        "examples/stone.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "stone",
+            true,
+            &[],
+            &HashSet::new(),
+            &recipe_rates,
+        )?)?,
+    )?;
+    fs::write(
+        "examples/military-science-pack.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "military-science-pack",
+            true,
+            &["iron-plate", "steel-plate", "copper-plate", "coal", "stone"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>(),
+            &HashSet::new(),
+            &recipe_rates,
+        )?)?,
+    )?;
+    fs::write(
         "examples/water.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "water",
@@ -142,16 +175,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             name: "advanced-oil-processing".to_owned(),
             module: Module::AdvancedOilProcessing {},
         })?,
-    )?;
-    fs::write(
-        "examples/coal.json",
-        serde_json::to_string_pretty(&facalculo::generate(
-            "coal",
-            true,
-            &[],
-            &HashSet::new(),
-            &recipe_rates,
-        )?)?,
     )?;
     fs::write(
         "examples/plastic-bar.json",
@@ -215,16 +238,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into_iter()
                 .map(ToOwned::to_owned)
                 .collect(),
-            &recipe_rates,
-        )?)?,
-    )?;
-    fs::write(
-        "examples/stone.json",
-        serde_json::to_string_pretty(&facalculo::generate(
-            "stone",
-            true,
-            &[],
-            &HashSet::new(),
             &recipe_rates,
         )?)?,
     )?;
