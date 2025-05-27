@@ -85,9 +85,7 @@ impl<'a> Graph<'a> {
                     .get("petroleum-gas")
                     .and_then(|d| d.to_f64())
                     .unwrap_or_default();
-                let a = Matrix3::from_iterator(
-                    vec![5., 9., 11., -20., 15., 0., 0., -15., 10.].into_iter(),
-                );
+                let a = Matrix3::from_iterator(vec![5., 9., 11., -20., 15., 0., 0., -15., 10.]);
                 let advanced = Matrix3x1::new(heavy_oil, light_oil, petroleum_gas);
                 let solution = a.lu().solve(&advanced).unwrap();
                 let [advanced_oil_processing, heavy_oil_cracking, light_oil_cracking] =

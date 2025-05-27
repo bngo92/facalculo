@@ -294,7 +294,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     CommandArg::Output("out.svg".to_string()),
                 ],
             )?;
-            Command::new("open").arg("out.svg").spawn()?;
+            // Uncomment when running on mac
+            // Command::new("open").arg("out.svg").spawn()?;
         }
     };
     Ok(())
@@ -358,14 +359,7 @@ mod tests {
         edges.sort_by_key(|(x, e, y)| (x.name.to_owned(), y.name.to_owned(), e.required));
         let edges: Vec<_> = edges
             .into_iter()
-            .map(|(x, e, y)| {
-                format!(
-                    "{} -> {} -> {}",
-                    x.to_string(),
-                    e.to_string(),
-                    y.to_string()
-                )
-            })
+            .map(|(x, e, y)| format!("{} -> {} -> {}", x, e, y))
             .collect();
         assert_eq!(
             edges,
@@ -439,14 +433,7 @@ mod tests {
         edges.sort_by_key(|(x, e, y)| (x.name.to_owned(), y.name.to_owned(), e.required));
         let edges: Vec<_> = edges
             .into_iter()
-            .map(|(x, e, y)| {
-                format!(
-                    "{} -> {} -> {}",
-                    x.to_string(),
-                    e.to_string(),
-                    y.to_string()
-                )
-            })
+            .map(|(x, e, y)| format!("{} -> {} -> {}", x, e, y))
             .collect();
         assert_eq!(
             edges,
@@ -525,14 +512,7 @@ mod tests {
         edges.sort_by_key(|(x, e, y)| (x.name.to_owned(), y.name.to_owned(), e.required));
         let edges: Vec<_> = edges
             .into_iter()
-            .map(|(x, e, y)| {
-                format!(
-                    "{} -> {} -> {}",
-                    x.to_string(),
-                    e.to_string(),
-                    y.to_string()
-                )
-            })
+            .map(|(x, e, y)| format!("{} -> {} -> {}", x, e, y))
             .collect();
         assert_eq!(
             edges,
