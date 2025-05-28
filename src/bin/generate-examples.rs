@@ -261,5 +261,64 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &recipe_rates,
         )?)?,
     )?;
+    fs::write(
+        "examples/sulfuric-acid.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "sulfuric-acid",
+            true,
+            &["sulfur", "iron-plate", "water"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>(),
+            &["sulfuric-acid"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect(),
+            &recipe_rates,
+        )?)?,
+    )?;
+    fs::write(
+        "examples/processing-unit.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "processing-unit",
+            true,
+            &["electronic-circuit", "advanced-circuit", "sulfuric-acid"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>(),
+            &HashSet::new(),
+            &recipe_rates,
+        )?)?,
+    )?;
+    fs::write(
+        "examples/utility-science-pack.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "utility-science-pack",
+            true,
+            &[
+                "steel-plate",
+                "copper-plate",
+                "plastic-bar",
+                "iron-plate",
+                "processing-unit",
+                "heavy-oil",
+                "electronic-circuit",
+                "sulfuric-acid",
+            ]
+            .into_iter()
+            .map(ToOwned::to_owned)
+            .collect::<Vec<_>>(),
+            &[
+                "low-density-structure",
+                "iron-gear-wheel",
+                "pipe",
+                "lubricant",
+            ]
+            .into_iter()
+            .map(ToOwned::to_owned)
+            .collect(),
+            &recipe_rates,
+        )?)?,
+    )?;
     Ok(())
 }

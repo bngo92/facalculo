@@ -61,7 +61,10 @@ impl<'a> ModuleBuilder<'_> {
                         let options: HashSet<_> = options.iter().cloned().collect();
                         let recipes: Vec<_> = options.intersection(self.recipes).collect();
                         if recipes.is_empty() {
-                            Err(format!("Multiple recipes were found for {edge}"))?
+                            Err(format!(
+                                "Multiple recipes were found for {edge} for {}",
+                                recipe.key
+                            ))?
                         }
                         self.repository.get(recipes[0]).unwrap()
                     }

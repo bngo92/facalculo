@@ -1,0 +1,14 @@
+{
+  "name": "processing-unit",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "processing-unit"
+          }
+        }
+      ]
+    }
+  }
+}

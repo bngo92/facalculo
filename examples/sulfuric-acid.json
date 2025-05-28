@@ -1,0 +1,14 @@
+{
+  "name": "sulfuric-acid",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "sulfuric-acid"
+          }
+        }
+      ]
+    }
+  }
+}
