@@ -320,5 +320,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &recipe_rates,
         )?)?,
     )?;
+    fs::write(
+        "examples/space-science-pack/space-science-pack.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "space-science-pack",
+            true,
+            &[],
+            &[
+                "iron-plate",
+                "metallic-asteroid-crushing",
+                "carbonic-asteroid-crushing",
+                "oxide-asteroid-crushing",
+            ]
+            .into_iter()
+            .map(ToOwned::to_owned)
+            .collect(),
+            &recipe_rates,
+        )?)?,
+    )?;
     Ok(())
 }

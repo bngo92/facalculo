@@ -210,6 +210,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Sort modules so outputs are processed before inputs
             let mut graph = GraphMap::<&str, (), Directed>::new();
             for (node, module) in &modules {
+                graph.add_node(node);
                 for input in recipe_rates.get_resource_inputs(&module.module) {
                     if node != input {
                         match recipe_rates.get_options(input) {
@@ -239,9 +240,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .values()
                 .flat_map(|m| recipe_rates.get_outputs(&m.module))
                 .collect();
-            for o in outputs {
-                if let Some(rate) = rates.get(o) {
-                    required.insert(o.to_owned(), *rate);
+            for o in &outputs {
+                if let Some(rate) = rates.get(*o) {
+                    required.insert((*o).to_owned(), *rate);
                 }
             }
             let defaults = recipe_rates
@@ -261,7 +262,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut index = 2;
             let mut graphs = Vec::new();
             let mut imports: HashMap<String, Vec<(usize, Decimal)>> = HashMap::new();
-            let mut used_imports = HashSet::new();
             for module in module_order {
                 let graph = Graph::from_module(
                     modules.remove(&module).unwrap(),
@@ -279,12 +279,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .entry(import.clone())
                         .or_default()
                         .extend(dependencies);
-                    used_imports.insert(import.clone());
                 }
                 index += graph.graph.node_count();
                 graphs.push(graph);
             }
-            let out = compute::render(&graphs, &imports, &used_imports)?;
+            let out = compute::render(
+                &graphs,
+                &imports,
+                &outputs.into_iter().map(ToOwned::to_owned).collect(),
+            )?;
             let g = parse(&out)?;
             exec(
                 g,

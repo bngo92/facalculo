@@ -120,31 +120,37 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
                 Some(Category::Smelting) => Decimal::new(2, 0),
                 _ => Decimal::ONE,
             };
+            let ingredients: Vec<_> = ingredients
+                .iter()
+                .cloned()
+                .filter_map(|i| {
+                    let i: Ingredient = serde_json::from_value(i).ok()?;
+                    Some(IngredientRate {
+                        rate: i.amount / energy_required * speed,
+                        name: i.name,
+                    })
+                })
+                .collect();
             let rate = RecipeRate {
                 category,
                 key: (*key).to_owned(),
-                ingredients: ingredients
-                    .iter()
-                    .cloned()
-                    .filter_map(|i| {
-                        let i: Ingredient = serde_json::from_value(i).ok()?;
-                        Some(IngredientRate {
-                            rate: i.amount / energy_required * speed,
-                            name: i.name,
-                        })
-                    })
-                    .collect(),
                 results: results
                     .iter()
                     .cloned()
                     .filter_map(|i| {
                         let i: RecipeResult = serde_json::from_value(i).ok()?;
-                        Some(IngredientRate {
-                            rate: i.amount / energy_required * speed,
-                            name: i.name,
-                        })
+                        // Ignore catalysts for now
+                        if ingredients.iter().any(|r| r.name == i.name) {
+                            None
+                        } else {
+                            Some(IngredientRate {
+                                rate: i.amount / energy_required * speed,
+                                name: i.name,
+                            })
+                        }
                     })
                     .collect(),
+                ingredients,
             };
             Some(((*key).to_owned(), rate))
         })

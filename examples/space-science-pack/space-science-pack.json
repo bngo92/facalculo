@@ -1,0 +1,34 @@
+{
+  "name": "space-science-pack",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "space-science-pack"
+          }
+        },
+        {
+          "recipe": {
+            "name": "iron-plate"
+          }
+        },
+        {
+          "recipe": {
+            "name": "metallic-asteroid-crushing"
+          }
+        },
+        {
+          "recipe": {
+            "name": "carbonic-asteroid-crushing"
+          }
+        },
+        {
+          "recipe": {
+            "name": "oxide-asteroid-crushing"
+          }
+        }
+      ]
+    }
+  }
+}
