@@ -146,7 +146,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let graphs: Vec<_> = modules
                 .iter()
                 .cloned()
-                .map(|m| Graph::from_module(m, &required, &defaults, &recipe_rates, belt, 0))
+                .map(|m| Graph::from_module(m, &required, &defaults, &recipe_rates, belt))
                 .collect();
             let out = compute::render(&graphs, &HashMap::new(), &HashSet::new())?;
             if args.render {
@@ -269,16 +269,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &defaults,
                     &recipe_rates,
                     belt,
-                    index,
                 );
-                for (import, dependencies) in &graph.imports {
-                    for (_, rate) in dependencies {
-                        *required.entry(import.clone()).or_default() += rate;
-                    }
+                for (import, node) in &graph.imports {
+                    *required.entry(import.clone()).or_default() +=
+                        graph.graph[*node].required.unwrap();
                     imports
                         .entry(import.clone())
                         .or_default()
-                        .extend(dependencies);
+                        .push((index + node.index(), graph.graph[*node].required.unwrap()));
                 }
                 index += graph.graph.node_count();
                 graphs.push(graph);
@@ -326,7 +324,6 @@ mod tests {
             &HashMap::new(),
             &recipe_rates,
             None,
-            0,
         );
         let graph = graph.graph;
         let mut nodes: Vec<_> = graph.node_weights().collect();
@@ -402,7 +399,6 @@ mod tests {
             &HashMap::new(),
             &recipe_rates,
             None,
-            0,
         );
         graph.group_nodes(Vec::new());
         let graph = graph.graph;
@@ -480,7 +476,6 @@ mod tests {
             &HashMap::new(),
             &recipe_rates,
             None,
-            0,
         );
         graph.group_nodes(vec![String::from("copper-plate")]);
         let graph = graph.graph;

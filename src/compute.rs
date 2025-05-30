@@ -44,15 +44,24 @@ fn render_module(
         "{indent}subgraph cluster_{} {{",
         graph.name.replace('-', "_")
     )?;
-    writeln!(f, "{indent}{INDENT}node [shape=record]")?;
     for node in g.node_references() {
-        writeln!(
-            f,
-            "{indent}{}{} [label = \"{}\"]",
-            INDENT,
-            g.to_index(node.id()) + index,
-            node.weight()
-        )?;
+        if node.weight().structure {
+            writeln!(
+                f,
+                "{indent}{}{} [label = \"{}\" shape=record]",
+                INDENT,
+                g.to_index(node.id()) + index,
+                node.weight()
+            )?;
+        } else {
+            writeln!(
+                f,
+                "{indent}{}{} [label = \"{}\"]",
+                INDENT,
+                g.to_index(node.id()) + index,
+                node.weight()
+            )?;
+        }
     }
     writeln!(f, "{indent}}}")?;
     for node in g.externals(Direction::Incoming) {
@@ -93,39 +102,32 @@ fn render_module(
             )?;
         }
     }
-    for node in g.externals(Direction::Outgoing) {
-        let edges = graph.get_ingredients(
-            graph.recipes.get(g[node].name.as_str()).unwrap().rate(),
-            g[node].required.unwrap(),
-            None,
-        );
-        if edges.is_empty() {
-            let mut node_obj = g[node].clone();
-            *node_obj.required.as_mut().unwrap() *= graph
-                .recipes
-                .get(node_obj.name.as_str())
-                .unwrap()
-                .rate()
-                .results[0]
-                .rate;
+    for (import, node) in &graph.imports {
+        if !used_imports.contains(import) {
             writeln!(
                 f,
                 "{indent}{} -> 1 [label = \"{}\" dir=back]",
                 node.index() + index,
-                node_obj.trim()
+                g[*node].trim()
             )?;
-        } else {
-            for edge in edges {
-                if !used_imports.contains(&edge.item) {
-                    writeln!(
-                        f,
-                        "{indent}{} -> 1 [label = \"{}\" dir=back]",
-                        node.index() + index,
-                        edge
-                    )?;
-                }
-            }
         }
+    }
+    for node in graph.resource_imports.values() {
+        let mut node_obj = g[*node].clone();
+        // Convert number of resources structures back to the resource rate
+        *node_obj.required.as_mut().unwrap() *= graph
+            .recipes
+            .get(node_obj.name.as_str())
+            .unwrap()
+            .rate()
+            .results[0]
+            .rate;
+        writeln!(
+            f,
+            "{indent}{} -> 1 [label = \"{}\" dir=back]",
+            node.index() + index,
+            node_obj.trim()
+        )?;
     }
     for edge in g.edge_references() {
         writeln!(

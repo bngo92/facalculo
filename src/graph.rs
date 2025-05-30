@@ -19,19 +19,19 @@ pub struct Graph<'a> {
     pub name: String,
     pub graph: GraphType,
     pub recipes: &'a RecipeRepository,
-    pub imports: HashMap<String, Vec<(usize, Decimal)>>,
+    pub imports: HashMap<String, NodeIndex>,
+    pub resource_imports: HashMap<String, NodeIndex>,
     pub outputs: HashSet<&'a str>,
-    index: usize,
 }
 
 impl<'a> Graph<'a> {
-    pub fn new(recipes: &'a RecipeRepository, index: usize) -> Graph<'a> {
+    pub fn new(recipes: &'a RecipeRepository) -> Graph<'a> {
         Graph {
             name: String::new(),
             graph: GraphType::new(),
             recipes,
             imports: HashMap::new(),
-            index,
+            resource_imports: HashMap::new(),
             outputs: HashSet::new(),
         }
     }
@@ -42,9 +42,8 @@ impl<'a> Graph<'a> {
         defaults: &HashMap<String, Result<Decimal, Decimal>>,
         recipes: &'a RecipeRepository,
         belt: Option<i64>,
-        index: usize,
     ) -> Graph<'a> {
-        let mut graph = Graph::new(recipes, index);
+        let mut graph = Graph::new(recipes);
         graph.name = module.name.clone();
         match module.module {
             Module::User { .. } => {
@@ -67,7 +66,7 @@ impl<'a> Graph<'a> {
                                 rate
                             }
                         }),
-                        recipe.rate(),
+                        recipe,
                         belt,
                     );
                 }
@@ -112,6 +111,7 @@ impl<'a> Graph<'a> {
                     let node = graph.graph.add_node(Node {
                         required: Some(ratio),
                         name: recipe.key.to_owned(),
+                        structure: true,
                     });
                     for edge in graph.get_ingredients(recipe, ratio, belt) {
                         match last {
@@ -119,11 +119,19 @@ impl<'a> Graph<'a> {
                                 graph.graph.add_edge(node, last, edge);
                             }
                             _ => {
-                                graph
-                                    .imports
-                                    .entry(edge.item.to_owned())
-                                    .or_default()
-                                    .push((graph.index + node.index(), edge.required));
+                                let n = graph.imports.entry(edge.item.to_owned()).or_insert_with(
+                                    || {
+                                        graph.graph.add_node(Node {
+                                            required: Some(Decimal::ZERO),
+                                            name: edge.item.to_owned(),
+                                            structure: false,
+                                        })
+                                    },
+                                );
+                                if let Some(required) = graph.graph[*n].required.as_mut() {
+                                    *required += edge.required
+                                }
+                                graph.graph.add_edge(node, *n, edge);
                             }
                         }
                     }
@@ -140,11 +148,12 @@ impl<'a> Graph<'a> {
         module: &Module,
         ingredient: &str,
         required: Decimal,
-        recipe: &RecipeRate,
+        recipe: Rate,
         belt: Option<i64>,
     ) -> NodeIndex {
         let ratio = required
             / recipe
+                .rate()
                 .results
                 .iter()
                 .find(|i| i.name == ingredient)
@@ -152,18 +161,29 @@ impl<'a> Graph<'a> {
                 .rate;
         let node = self.graph.add_node(Node {
             required: Some(ratio),
-            name: recipe.key.to_owned(),
+            name: recipe.rate().key.to_owned(),
+            structure: true,
         });
-        for edge in self.get_ingredients(recipe, ratio, belt) {
+        if let Rate::Resource(_) = recipe {
+            self.resource_imports.insert(ingredient.to_owned(), node);
+        }
+        for edge in self.get_ingredients(recipe.rate(), ratio, belt) {
             if self.recipes.get_inputs(module).contains(edge.item.as_str()) {
-                self.imports
-                    .entry(edge.item.to_owned())
-                    .or_default()
-                    .push((self.index + node.index(), edge.required));
+                let n = self.imports.entry(edge.item.to_owned()).or_insert_with(|| {
+                    self.graph.add_node(Node {
+                        required: Some(Decimal::ZERO),
+                        name: edge.item.to_owned(),
+                        structure: false,
+                    })
+                });
+                if let Some(required) = self.graph[*n].required.as_mut() {
+                    *required += edge.required;
+                }
+                self.graph.add_edge(node, *n, edge);
             } else {
                 let recipe = match self.recipes.get_options(&edge.item) {
                     RepositoryOption::None => continue,
-                    RepositoryOption::Some(recipe) => recipe.rate(),
+                    RepositoryOption::Some(recipe) => recipe,
                     RepositoryOption::Multiple(recipes) => {
                         let recipes: HashSet<_> = recipes.iter().collect();
                         let Module::User { structures } = module else {
@@ -177,7 +197,7 @@ impl<'a> Graph<'a> {
                             })
                             .find(|r| recipes.contains(r))
                             .unwrap();
-                        self.recipes.get(recipe).unwrap().rate()
+                        self.recipes.get(recipe).unwrap()
                     }
                 };
                 let n = self.build_module_node(module, &edge.item, edge.required, recipe, belt);
@@ -329,6 +349,7 @@ impl<'a> Graph<'a> {
 pub struct Node {
     pub required: Option<Decimal>,
     pub name: String,
+    pub structure: bool,
 }
 
 impl Node {
