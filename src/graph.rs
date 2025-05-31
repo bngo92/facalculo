@@ -21,7 +21,7 @@ pub struct Graph<'a> {
     pub recipes: &'a RecipeRepository,
     pub imports: HashMap<String, NodeIndex>,
     pub resource_imports: HashMap<String, NodeIndex>,
-    pub outputs: HashSet<&'a str>,
+    pub outputs: HashMap<String, NodeIndex>,
 }
 
 impl<'a> Graph<'a> {
@@ -32,7 +32,7 @@ impl<'a> Graph<'a> {
             recipes,
             imports: HashMap::new(),
             resource_imports: HashMap::new(),
-            outputs: HashSet::new(),
+            outputs: HashMap::new(),
         }
     }
 
@@ -72,20 +72,21 @@ impl<'a> Graph<'a> {
                 }
             }
             Module::AdvancedOilProcessing {} => {
-                let heavy_oil = required
-                    .get("heavy-oil")
-                    .and_then(|d| d.to_f64())
-                    .unwrap_or_default();
-                let light_oil = required
-                    .get("light-oil")
-                    .and_then(|d| d.to_f64())
-                    .unwrap_or_default();
-                let petroleum_gas = required
-                    .get("petroleum-gas")
-                    .and_then(|d| d.to_f64())
-                    .unwrap_or_default();
+                let required: HashMap<_, _> = ["heavy-oil", "light-oil", "petroleum-gas"]
+                    .into_iter()
+                    .map(|p| {
+                        (
+                            p,
+                            required.get(p).and_then(|d| d.to_f64()).unwrap_or_default(),
+                        )
+                    })
+                    .collect();
                 let a = Matrix3::from_iterator(vec![5., 9., 11., -20., 15., 0., 0., -15., 10.]);
-                let advanced = Matrix3x1::new(heavy_oil, light_oil, petroleum_gas);
+                let advanced = Matrix3x1::new(
+                    required["heavy-oil"],
+                    required["light-oil"],
+                    required["petroleum-gas"],
+                );
                 let solution = a.lu().solve(&advanced).unwrap();
                 let [advanced_oil_processing, heavy_oil_cracking, light_oil_cracking] =
                     solution.as_slice()
@@ -93,16 +94,19 @@ impl<'a> Graph<'a> {
                     unimplemented!()
                 };
                 let mut last: Option<(NodeIndex, &str)> = None;
-                for (recipe, ratio) in [
+                for (output, recipe, ratio) in [
                     (
+                        "heavy-oil",
                         recipes.get("advanced-oil-processing").unwrap().rate(),
                         advanced_oil_processing,
                     ),
                     (
+                        "light-oil",
                         recipes.get("heavy-oil-cracking").unwrap().rate(),
                         heavy_oil_cracking,
                     ),
                     (
+                        "petroleum-gas",
                         recipes.get("light-oil-cracking").unwrap().rate(),
                         light_oil_cracking,
                     ),
@@ -113,6 +117,9 @@ impl<'a> Graph<'a> {
                         name: recipe.key.to_owned(),
                         structure: true,
                     });
+                    if required[output] > 0. {
+                        graph.outputs.insert(output.to_owned(), node);
+                    }
                     for edge in graph.get_ingredients(recipe, ratio, belt) {
                         match last {
                             Some((last, item)) if edge.item == *item => {
@@ -139,7 +146,6 @@ impl<'a> Graph<'a> {
                 }
             }
         }
-        graph.outputs = recipes.get_outputs(&module.module);
         graph
     }
 
@@ -166,6 +172,15 @@ impl<'a> Graph<'a> {
         });
         if let Rate::Resource(_) = recipe {
             self.resource_imports.insert(ingredient.to_owned(), node);
+        }
+        for result in &recipe.rate().results {
+            if self
+                .recipes
+                .get_outputs(module)
+                .contains(result.name.as_str())
+            {
+                self.outputs.insert(result.name.to_owned(), node);
+            }
         }
         for edge in self.get_ingredients(recipe.rate(), ratio, belt) {
             if self.recipes.get_inputs(module).contains(edge.item.as_str()) {

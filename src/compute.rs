@@ -64,29 +64,23 @@ fn render_module(
         }
     }
     writeln!(f, "{indent}}}")?;
-    for node in g.externals(Direction::Incoming) {
-        let mut node_obj = g[node].clone();
-        let mut used = false;
-        for o in &graph.outputs {
-            if let Some(dependencies) = imports.get(*o) {
-                for &(import, required) in dependencies {
-                    writeln!(
-                        f,
-                        "{indent}{} -> {} [label = \"{}\" dir=back]",
-                        import,
-                        node.index() + index,
-                        Edge {
-                            item: (*o).to_owned(),
-                            required,
-                            belt: None
-                        }
-                    )?;
-                }
-                used = true;
-                break;
+    for (o, node) in &graph.outputs {
+        if let Some(dependencies) = imports.get(o.as_str()) {
+            for &(import, required) in dependencies {
+                writeln!(
+                    f,
+                    "{indent}{} -> {} [label = \"{}\" dir=back]",
+                    import,
+                    node.index() + index,
+                    Edge {
+                        item: (*o).to_owned(),
+                        required,
+                        belt: None
+                    }
+                )?;
             }
-        }
-        if !used {
+        } else {
+            let mut node_obj = g[*node].clone();
             *node_obj.required.as_mut().unwrap() *= graph
                 .recipes
                 .get(node_obj.name.as_str())
