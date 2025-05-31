@@ -58,8 +58,6 @@ pub enum Category {
     RecyclingOrHandCrafting,
     Smelting,
     Parameters,
-    // Added category
-    Mining,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -163,7 +161,11 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
             key: (*key).to_owned(),
             ingredients: Vec::new(),
             results: vec![IngredientRate {
-                rate: resource.minable.mining_time * Decimal::from_str("0.5").unwrap(),
+                rate: resource.minable.mining_time
+                    * match *key {
+                        "crude-oil" => Decimal::TWO,
+                        _ => Decimal::from_str("0.5").unwrap(),
+                    },
                 name: (*key).to_owned(),
             }],
         };
