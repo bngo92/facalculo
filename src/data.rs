@@ -1,10 +1,11 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt::Display,
+    iter,
     str::FromStr,
 };
 
-use rust_decimal::Decimal;
+use rust_decimal::{prelude::FromPrimitive, Decimal};
 use serde_derive::Deserialize;
 use serde_json::Value;
 
@@ -201,10 +202,34 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
                 .push(key.clone());
         }
     }
+    let science_rate = Decimal::from_f64((1. + 2.5) / 60.).unwrap();
     RecipeRepository {
         recipes: recipe_rates,
         resources,
         recipe_outputs,
+        science: "science".to_owned(),
+        science_recipe: RecipeRate {
+            category: None,
+            key: "science".to_owned(),
+            ingredients: [
+                "automation-science-pack",
+                "logistic-science-pack",
+                "military-science-pack",
+                "chemical-science-pack",
+                "production-science-pack",
+                "utility-science-pack",
+            ]
+            .into_iter()
+            .map(|i| IngredientRate {
+                rate: science_rate,
+                name: i.to_owned(),
+            })
+            .collect(),
+            results: vec![IngredientRate {
+                rate: science_rate,
+                name: "science".to_owned(),
+            }],
+        },
     }
 }
 
@@ -218,11 +243,21 @@ pub struct RecipeRepository {
     pub recipes: HashMap<String, RecipeRate>,
     pub resources: HashMap<String, RecipeRate>,
     pub recipe_outputs: HashMap<String, Vec<String>>,
+    science: String,
+    pub science_recipe: RecipeRate,
 }
 
 impl RecipeRepository {
+    pub fn recipes(&self) -> impl Iterator<Item = (&String, &RecipeRate)> {
+        self.recipes
+            .iter()
+            .chain(iter::once((&self.science, &self.science_recipe)))
+    }
+
     pub fn get(&self, key: &str) -> Option<Rate> {
-        if let Some(recipe) = self.recipes.get(key) {
+        if key == "science" {
+            Some(Rate::Recipe(&self.science_recipe))
+        } else if let Some(recipe) = self.recipes.get(key) {
             Some(Rate::Recipe(recipe))
         } else {
             self.resources.get(key).map(Rate::Resource)
@@ -271,6 +306,17 @@ impl RecipeRepository {
         let structures = match module {
             Module::User { structures } => structures,
             Module::AdvancedOilProcessing {} => return HashSet::from(["water", "crude-oil"]),
+            Module::Science {} => {
+                return HashSet::from([
+                    "automation-science-pack",
+                    "logistic-science-pack",
+                    "military-science-pack",
+                    "chemical-science-pack",
+                    "production-science-pack",
+                    "utility-science-pack",
+                    "space-science-pack",
+                ])
+            }
         };
         let mut inputs = HashSet::new();
         let mut outputs = HashSet::new();
@@ -304,6 +350,7 @@ impl RecipeRepository {
             Module::AdvancedOilProcessing {} => {
                 return HashSet::from(["heavy-oil", "light-oil", "petroleum-gas"])
             }
+            Module::Science {} => return HashSet::from(["science"]),
         };
         let mut inputs = HashSet::new();
         let mut outputs = HashSet::new();

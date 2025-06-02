@@ -108,6 +108,7 @@ pub struct NamedModule {
 pub enum Module {
     User { structures: Vec<Structure> },
     AdvancedOilProcessing {},
+    Science {},
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

@@ -246,8 +246,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
             let defaults = recipe_rates
-                .recipes
-                .iter()
+                .recipes()
                 .map(|(k, r)| {
                     (
                         (*k).to_owned(),
@@ -271,12 +270,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     belt,
                 );
                 for (import, node) in &graph.imports {
-                    *required.entry(import.clone()).or_default() +=
-                        graph.graph[*node].required.unwrap();
+                    // We do not create import nodes for science packs
+                    let import_required = if import.ends_with("science-pack") {
+                        graph.graph[*node].required.unwrap()
+                            * graph.recipes.science_recipe.results[0].rate
+                    } else {
+                        graph.graph[*node].required.unwrap()
+                    };
+                    *required.entry(import.clone()).or_default() += import_required;
                     imports
                         .entry(import.clone())
                         .or_default()
-                        .push((index + node.index(), graph.graph[*node].required.unwrap()));
+                        .push((index + node.index(), import_required));
                 }
                 index += graph.graph.node_count();
                 graphs.push(graph);

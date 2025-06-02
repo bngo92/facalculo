@@ -325,7 +325,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         serde_json::to_string_pretty(&facalculo::generate(
             "space-science-pack",
             true,
-            &[],
+            &[
+                "metallic-asteroid-chunk",
+                "carbonic-asteroid-chunk",
+                "oxide-asteroid-chunk",
+            ]
+            .into_iter()
+            .map(ToOwned::to_owned)
+            .collect::<Vec<_>>(),
             &[
                 "iron-plate",
                 "metallic-asteroid-crushing",
@@ -337,6 +344,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .collect(),
             &recipe_rates,
         )?)?,
+    )?;
+    fs::write(
+        "examples/science.json",
+        serde_json::to_string_pretty(&NamedModule {
+            name: "science".to_owned(),
+            module: Module::Science {},
+        })?,
     )?;
     Ok(())
 }

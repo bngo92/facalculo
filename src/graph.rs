@@ -145,6 +145,32 @@ impl<'a> Graph<'a> {
                     last = Some((node, &recipe.results[0].name));
                 }
             }
+            Module::Science {} => {
+                let node = graph.graph.add_node(Node {
+                    required: Some(
+                        required.get("science").copied().unwrap_or_else(|| {
+                            match &defaults["science"] {
+                                Ok(rate) => *rate,
+                                Err(_) => todo!(),
+                            }
+                        }) / recipes.science_recipe.results[0].rate,
+                    ),
+                    name: "science".to_owned(),
+                    structure: true,
+                });
+                for science in [
+                    "automation-science-pack",
+                    "logistic-science-pack",
+                    "military-science-pack",
+                    "chemical-science-pack",
+                    "production-science-pack",
+                    "utility-science-pack",
+                    "space-science-pack",
+                ] {
+                    graph.imports.insert(science.to_owned(), node);
+                }
+                graph.outputs.insert("science".to_owned(), node);
+            }
         }
         graph
     }
