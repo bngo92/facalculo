@@ -27,7 +27,7 @@ struct Args {
     #[arg(long)]
     total: bool,
     #[arg(long)]
-    out: bool,
+    out: Option<String>,
     #[arg(long, value_parser = 1..=3, default_value_t = 1)]
     asm: i64,
     #[arg(long)]
@@ -177,7 +177,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     );
                 }
             }
-            if args.out {
+            if args.out.is_some() {
                 for module in modules {
                     println!("{}", serde_json::to_string_pretty(&module)?);
                 }
@@ -292,12 +292,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &outputs.into_iter().map(ToOwned::to_owned).collect(),
             )?;
             let g = parse(&out)?;
+            let format = match args.out.as_deref() {
+                Some("pdf") => Format::Pdf,
+                Some("svg") | None => Format::Svg,
+                _ => unimplemented!(),
+            };
             exec(
                 g,
                 &mut PrinterContext::default(),
                 vec![
-                    Format::Svg.into(),
-                    CommandArg::Output("out.svg".to_string()),
+                    format.into(),
+                    CommandArg::Output(format!("out.{:?}", format).to_lowercase()),
                 ],
             )?;
             // Uncomment when running on mac
