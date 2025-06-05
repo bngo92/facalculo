@@ -1,4 +1,4 @@
-use crate::graph::{Edge, Graph};
+use crate::graph::{Edge, Graph, Import};
 use petgraph::{
     visit::{Dfs, EdgeRef, IntoEdgeReferences, IntoNodeReferences, NodeIndexable, NodeRef},
     Direction,
@@ -97,30 +97,23 @@ fn render_module(
         }
     }
     for (import, node) in &graph.imports {
-        if !used_imports.contains(import) {
-            writeln!(
-                f,
-                "{indent}{} -> 1 [label = \"{}\" dir=back]",
-                node.index() + index,
-                g[*node].trim()
-            )?;
-        }
-    }
-    for node in graph.resource_imports.values() {
-        let mut node_obj = g[*node].clone();
-        // Convert number of resources structures back to the resource rate
-        *node_obj.required.as_mut().unwrap() *= graph
-            .recipes
-            .get(node_obj.name.as_str())
-            .unwrap()
-            .rate()
-            .results[0]
-            .rate;
+        let (node, required) = match node {
+            Import::Resource(node, required) => (node, *required),
+            Import::Node(node) if !used_imports.contains(import) => {
+                (node, g[*node].required.unwrap())
+            }
+            Import::Import(node, required) if !used_imports.contains(import) => (node, *required),
+            _ => continue,
+        };
         writeln!(
             f,
             "{indent}{} -> 1 [label = \"{}\" dir=back]",
             node.index() + index,
-            node_obj.trim()
+            Edge {
+                item: import.to_owned(),
+                required,
+                belt: None
+            }
         )?;
     }
     for edge in g.edge_references() {

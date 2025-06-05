@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use facalculo::{
     compute,
     data::{self, Data, RepositoryOption},
-    graph::Graph,
+    graph::{Graph, Import},
     module::NamedModule,
 };
 use graphviz_rust::{
@@ -271,11 +271,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 );
                 for (import, node) in &graph.imports {
                     // We do not create import nodes for science packs
-                    let import_required = if import.ends_with("science-pack") {
-                        graph.graph[*node].required.unwrap()
-                            * graph.recipes.science_recipe.results[0].rate
-                    } else {
-                        graph.graph[*node].required.unwrap()
+                    let (import_required, node) = match node {
+                        Import::Resource(..) => continue,
+                        Import::Node(node) => (graph.graph[*node].required.unwrap(), node),
+                        Import::Import(node, required) => (*required, node),
                     };
                     *required.entry(import.clone()).or_default() += import_required;
                     imports

@@ -19,9 +19,20 @@ pub struct Graph<'a> {
     pub name: String,
     pub graph: GraphType,
     pub recipes: &'a RecipeRepository,
-    pub imports: HashMap<String, NodeIndex>,
-    pub resource_imports: HashMap<String, NodeIndex>,
+    pub imports: HashMap<String, Import>,
     pub outputs: HashMap<String, NodeIndex>,
+}
+
+#[derive(Clone)]
+pub enum Import {
+    /// The importing module is grouping imports into import nodes
+    Node(NodeIndex),
+
+    /// Import is a raw resource that shouldn't be imported from other modules
+    Resource(NodeIndex, Decimal),
+
+    /// The node requires X items
+    Import(NodeIndex, Decimal),
 }
 
 impl<'a> Graph<'a> {
@@ -31,7 +42,6 @@ impl<'a> Graph<'a> {
             graph: GraphType::new(),
             recipes,
             imports: HashMap::new(),
-            resource_imports: HashMap::new(),
             outputs: HashMap::new(),
         }
     }
@@ -128,13 +138,14 @@ impl<'a> Graph<'a> {
                             _ => {
                                 let n = graph.imports.entry(edge.item.to_owned()).or_insert_with(
                                     || {
-                                        graph.graph.add_node(Node {
+                                        Import::Node(graph.graph.add_node(Node {
                                             required: Some(Decimal::ZERO),
                                             name: edge.item.to_owned(),
                                             structure: false,
-                                        })
+                                        }))
                                     },
                                 );
+                                let Import::Node(n) = n else { unreachable!() };
                                 if let Some(required) = graph.graph[*n].required.as_mut() {
                                     *required += edge.required
                                 }
@@ -146,15 +157,15 @@ impl<'a> Graph<'a> {
                 }
             }
             Module::Science {} => {
+                let required = required
+                    .get("science")
+                    .copied()
+                    .unwrap_or_else(|| match &defaults["science"] {
+                        Ok(rate) => *rate,
+                        Err(_) => todo!(),
+                    });
                 let node = graph.graph.add_node(Node {
-                    required: Some(
-                        required.get("science").copied().unwrap_or_else(|| {
-                            match &defaults["science"] {
-                                Ok(rate) => *rate,
-                                Err(_) => todo!(),
-                            }
-                        }) / recipes.science_recipe.results[0].rate,
-                    ),
+                    required: Some(required / recipes.science_recipe.results[0].rate),
                     name: "science".to_owned(),
                     structure: true,
                 });
@@ -167,7 +178,9 @@ impl<'a> Graph<'a> {
                     "utility-science-pack",
                     "space-science-pack",
                 ] {
-                    graph.imports.insert(science.to_owned(), node);
+                    graph
+                        .imports
+                        .insert(science.to_owned(), Import::Import(node, required));
                 }
                 graph.outputs.insert("science".to_owned(), node);
             }
@@ -197,7 +210,8 @@ impl<'a> Graph<'a> {
             structure: true,
         });
         if let Rate::Resource(_) = recipe {
-            self.resource_imports.insert(ingredient.to_owned(), node);
+            self.imports
+                .insert(ingredient.to_owned(), Import::Resource(node, required));
         }
         for result in &recipe.rate().results {
             if self
@@ -211,12 +225,13 @@ impl<'a> Graph<'a> {
         for edge in self.get_ingredients(recipe.rate(), ratio, belt) {
             if self.recipes.get_inputs(module).contains(edge.item.as_str()) {
                 let n = self.imports.entry(edge.item.to_owned()).or_insert_with(|| {
-                    self.graph.add_node(Node {
+                    Import::Node(self.graph.add_node(Node {
                         required: Some(Decimal::ZERO),
                         name: edge.item.to_owned(),
                         structure: false,
-                    })
+                    }))
                 });
+                let Import::Node(n) = n else { unreachable!() };
                 if let Some(required) = self.graph[*n].required.as_mut() {
                     *required += edge.required;
                 }
