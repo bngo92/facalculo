@@ -20,7 +20,7 @@ pub struct Graph<'a> {
     pub graph: GraphType,
     pub recipes: &'a RecipeRepository,
     pub imports: HashMap<String, Import>,
-    pub outputs: HashMap<String, NodeIndex>,
+    pub outputs: HashMap<String, (NodeIndex, Decimal)>,
 }
 
 #[derive(Clone)]
@@ -128,7 +128,10 @@ impl<'a> Graph<'a> {
                         structure: true,
                     });
                     if required[output] > 0. {
-                        graph.outputs.insert(output.to_owned(), node);
+                        graph.outputs.insert(
+                            output.to_owned(),
+                            (node, Decimal::from_f64(required[output]).unwrap()),
+                        );
                     }
                     for edge in graph.get_ingredients(recipe, ratio, belt) {
                         match last {
@@ -182,7 +185,7 @@ impl<'a> Graph<'a> {
                         .imports
                         .insert(science.to_owned(), Import::Import(node, required));
                 }
-                graph.outputs.insert("science".to_owned(), node);
+                graph.outputs.insert("science".to_owned(), (node, required));
             }
         }
         graph
@@ -219,7 +222,8 @@ impl<'a> Graph<'a> {
                 .get_outputs(module)
                 .contains(result.name.as_str())
             {
-                self.outputs.insert(result.name.to_owned(), node);
+                self.outputs
+                    .insert(result.name.to_owned(), (node, required));
             }
         }
         for edge in self.get_ingredients(recipe.rate(), ratio, belt) {

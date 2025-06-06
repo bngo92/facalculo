@@ -64,7 +64,7 @@ fn render_module(
         }
     }
     writeln!(f, "{indent}}}")?;
-    for (o, node) in &graph.outputs {
+    for (o, (node, required)) in &graph.outputs {
         if let Some(dependencies) = imports.get(o.as_str()) {
             for &(import, required) in dependencies {
                 writeln!(
@@ -80,19 +80,15 @@ fn render_module(
                 )?;
             }
         } else {
-            let mut node_obj = g[*node].clone();
-            *node_obj.required.as_mut().unwrap() *= graph
-                .recipes
-                .get(node_obj.name.as_str())
-                .unwrap()
-                .rate()
-                .results[0]
-                .rate;
             writeln!(
                 f,
                 "{indent}0 -> {} [label = \"{}\" dir=back]",
                 node.index() + index,
-                node_obj.trim()
+                Edge {
+                    item: (*o).to_owned(),
+                    required: *required,
+                    belt: None
+                }
             )?;
         }
     }
