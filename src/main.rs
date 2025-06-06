@@ -73,7 +73,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let b = include_bytes!("data-raw-dump.json");
     let data: Data = serde_json::from_slice(b)?;
     let recipe_rates = data::calculate_rates(&data, args.asm);
-    let belt = args.belt.map(|b| b as i64);
+    let _belt = args.belt.map(|b| b as i64);
     match args.command {
         None => (),
         Some(Commands::Generate {
@@ -146,7 +146,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let graphs: Vec<_> = modules
                 .iter()
                 .cloned()
-                .map(|m| Graph::from_module(m, &required, &defaults, &recipe_rates, belt))
+                .map(|m| Graph::from_module(m, &required, &defaults, &recipe_rates))
                 .collect();
             let out = compute::render(&graphs, &HashMap::new(), &HashSet::new())?;
             if args.render {
@@ -267,7 +267,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &required,
                     &defaults,
                     &recipe_rates,
-                    belt,
                 );
                 for (import, node) in &graph.imports {
                     // We do not create import nodes for science packs
@@ -332,7 +331,6 @@ mod tests {
             )]),
             &HashMap::new(),
             &recipe_rates,
-            None,
         );
         let graph = graph.graph;
         let mut nodes: Vec<_> = graph.node_weights().collect();
@@ -407,7 +405,6 @@ mod tests {
             )]),
             &HashMap::new(),
             &recipe_rates,
-            None,
         );
         graph.group_nodes(Vec::new());
         let graph = graph.graph;
@@ -484,7 +481,6 @@ mod tests {
             )]),
             &HashMap::new(),
             &recipe_rates,
-            None,
         );
         graph.group_nodes(vec![String::from("copper-plate")]);
         let graph = graph.graph;

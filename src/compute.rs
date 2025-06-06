@@ -75,7 +75,6 @@ fn render_module(
                     Edge {
                         item: (*o).to_owned(),
                         required,
-                        belt: None
                     }
                 )?;
             }
@@ -87,7 +86,6 @@ fn render_module(
                 Edge {
                     item: (*o).to_owned(),
                     required: *required,
-                    belt: None
                 }
             )?;
         }
@@ -108,7 +106,6 @@ fn render_module(
             Edge {
                 item: import.to_owned(),
                 required,
-                belt: None
             }
         )?;
     }

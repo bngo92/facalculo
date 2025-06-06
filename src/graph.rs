@@ -1,5 +1,5 @@
 use crate::{
-    data::{Category, Rate, RecipeRate, RecipeRepository, RepositoryOption},
+    data::{Rate, RecipeRate, RecipeRepository, RepositoryOption},
     module::{Module, NamedModule, Structure},
 };
 use nalgebra::{Matrix3, Matrix3x1};
@@ -51,7 +51,6 @@ impl<'a> Graph<'a> {
         required: &HashMap<String, Decimal>,
         defaults: &HashMap<String, Result<Decimal, Decimal>>,
         recipes: &'a RecipeRepository,
-        belt: Option<i64>,
     ) -> Graph<'a> {
         let mut graph = Graph::new(recipes);
         graph.name = module.name.clone();
@@ -77,7 +76,6 @@ impl<'a> Graph<'a> {
                             }
                         }),
                         recipe,
-                        belt,
                     );
                 }
             }
@@ -133,7 +131,7 @@ impl<'a> Graph<'a> {
                             (node, Decimal::from_f64(required[output]).unwrap()),
                         );
                     }
-                    for edge in graph.get_ingredients(recipe, ratio, belt) {
+                    for edge in graph.get_ingredients(recipe, ratio) {
                         match last {
                             Some((last, item)) if edge.item == *item => {
                                 graph.graph.add_edge(node, last, edge);
@@ -210,7 +208,6 @@ impl<'a> Graph<'a> {
         ingredient: &str,
         required: Decimal,
         recipe: Rate,
-        belt: Option<i64>,
     ) -> NodeIndex {
         let ratio = required
             / recipe
@@ -239,7 +236,7 @@ impl<'a> Graph<'a> {
                     .insert(result.name.to_owned(), (node, required));
             }
         }
-        for edge in self.get_ingredients(recipe.rate(), ratio, belt) {
+        for edge in self.get_ingredients(recipe.rate(), ratio) {
             if self.recipes.get_inputs(module).contains(edge.item.as_str()) {
                 let n = self.imports.entry(edge.item.to_owned()).or_insert_with(|| {
                     Import::Node(self.graph.add_node(Node {
@@ -273,40 +270,20 @@ impl<'a> Graph<'a> {
                         self.recipes.get(recipe).unwrap()
                     }
                 };
-                let n = self.build_module_node(module, &edge.item, edge.required, recipe, belt);
+                let n = self.build_module_node(module, &edge.item, edge.required, recipe);
                 self.graph.add_edge(node, n, edge);
             }
         }
         node
     }
 
-    pub fn get_ingredients(
-        &self,
-        recipe: &RecipeRate,
-        ratio: Decimal,
-        belt: Option<i64>,
-    ) -> Vec<Edge> {
+    pub fn get_ingredients(&self, recipe: &RecipeRate, ratio: Decimal) -> Vec<Edge> {
         recipe
             .ingredients
             .iter()
-            .map(move |i| {
-                let belt = if let None | Some(Category::OilProcessing) =
-                    self.recipes.get(i.name.as_str()).and_then(|r| {
-                        if let Rate::Recipe(r) = r {
-                            r.category
-                        } else {
-                            None
-                        }
-                    }) {
-                    None
-                } else {
-                    belt
-                };
-                Edge {
-                    required: ratio * i.rate,
-                    belt,
-                    item: i.name.to_owned(),
-                }
+            .map(move |i| Edge {
+                required: ratio * i.rate,
+                item: i.name.to_owned(),
             })
             .collect()
     }
@@ -448,7 +425,6 @@ impl Display for Node {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Edge {
     pub required: Decimal,
-    pub belt: Option<i64>,
     pub item: String,
 }
 
@@ -459,15 +435,7 @@ impl Display for Edge {
             "{} {}",
             crate::round_string(self.required),
             trim(&self.item)
-        )?;
-        if let Some(belt) = self.belt {
-            write!(
-                f,
-                " ({})",
-                crate::round_string(self.required / Decimal::from(belt))
-            )?;
-        }
-        Ok(())
+        )
     }
 }
 
