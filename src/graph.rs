@@ -159,7 +159,7 @@ impl<'a> Graph<'a> {
                     last = Some((node, &recipe.results[0].name));
                 }
             }
-            Module::Science {} => {
+            Module::Science { modules } => {
                 let required = required
                     .get("science")
                     .copied()
@@ -167,8 +167,20 @@ impl<'a> Graph<'a> {
                         Ok(rate) => *rate,
                         Err(_) => todo!(),
                     });
+                let productivity = Decimal::ONE
+                    + modules
+                        .iter()
+                        .map(|(m, c)| recipes.modules[m].effect.productivity * Decimal::from(*c))
+                        .sum::<Decimal>();
+                let speed = Decimal::ONE
+                    + modules
+                        .iter()
+                        .map(|(m, c)| recipes.modules[m].effect.speed * Decimal::from(*c))
+                        .sum::<Decimal>();
                 let node = graph.graph.add_node(Node {
-                    required: Some(required / recipes.science_recipe.results[0].rate),
+                    required: Some(
+                        required / recipes.science_recipe.results[0].rate / productivity / speed,
+                    ),
                     name: "science".to_owned(),
                     structure: true,
                 });
@@ -181,9 +193,10 @@ impl<'a> Graph<'a> {
                     "utility-science-pack",
                     "space-science-pack",
                 ] {
-                    graph
-                        .imports
-                        .insert(science.to_owned(), Import::Import(node, required));
+                    graph.imports.insert(
+                        science.to_owned(),
+                        Import::Import(node, required / productivity),
+                    );
                 }
                 graph.outputs.insert("science".to_owned(), (node, required));
             }

@@ -1,6 +1,10 @@
 {
   "name": "science",
   "module": {
-    "science": {}
+    "science": {
+      "modules": {
+        "productivity-module-3": 2
+      }
+    }
   }
 }

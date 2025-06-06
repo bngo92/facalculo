@@ -3,7 +3,7 @@ use crate::{
     Rate,
 };
 use serde_derive::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 pub struct ModuleBuilder<'a> {
     name: String,
@@ -106,9 +106,14 @@ pub struct NamedModule {
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Module {
-    User { structures: Vec<Structure> },
+    User {
+        structures: Vec<Structure>,
+    },
     AdvancedOilProcessing {},
-    Science {},
+    Science {
+        #[serde(default)]
+        modules: HashMap<String, i32>,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

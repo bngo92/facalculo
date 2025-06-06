@@ -9,7 +9,7 @@ use rust_decimal::{prelude::FromPrimitive, Decimal};
 use serde_derive::Deserialize;
 use serde_json::Value;
 
-use crate::module::{Module, Structure};
+use crate::module::{self, Structure};
 
 #[derive(Debug, Deserialize)]
 pub struct Data<'a> {
@@ -17,6 +17,7 @@ pub struct Data<'a> {
     recipe: HashMap<&'a str, Recipe>,
     #[serde(borrow)]
     resource: HashMap<&'a str, Resource>,
+    module: HashMap<&'a str, Module>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -81,6 +82,23 @@ struct Resource {
 #[derive(Debug, Deserialize)]
 struct Mineable {
     mining_time: Decimal,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct Module {
+    pub effect: Effect,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct Effect {
+    #[serde(default)]
+    pub productivity: Decimal,
+    #[serde(default)]
+    pub consumption: Decimal,
+    #[serde(default)]
+    pub pollution: Decimal,
+    #[serde(default)]
+    pub speed: Decimal,
 }
 
 pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
@@ -207,6 +225,11 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
         recipes: recipe_rates,
         resources,
         recipe_outputs,
+        modules: data
+            .module
+            .iter()
+            .map(|(&name, module)| (name.to_owned(), module.clone()))
+            .collect(),
         science: "science".to_owned(),
         science_recipe: RecipeRate {
             category: None,
@@ -243,6 +266,7 @@ pub struct RecipeRepository {
     pub recipes: HashMap<String, RecipeRate>,
     pub resources: HashMap<String, RecipeRate>,
     pub recipe_outputs: HashMap<String, Vec<String>>,
+    pub modules: HashMap<String, Module>,
     science: String,
     pub science_recipe: RecipeRate,
 }
@@ -272,8 +296,8 @@ impl RecipeRepository {
         }
     }
 
-    pub fn get_inputs(&self, module: &Module) -> HashSet<&str> {
-        let Module::User { structures } = module else {
+    pub fn get_inputs(&self, module: &module::Module) -> HashSet<&str> {
+        let module::Module::User { structures } = module else {
             return HashSet::new();
         };
         let mut inputs = HashSet::new();
@@ -302,11 +326,13 @@ impl RecipeRepository {
         inputs.difference(&outputs).copied().collect()
     }
 
-    pub fn get_resource_inputs(&self, module: &Module) -> HashSet<&str> {
+    pub fn get_resource_inputs(&self, module: &module::Module) -> HashSet<&str> {
         let structures = match module {
-            Module::User { structures } => structures,
-            Module::AdvancedOilProcessing {} => return HashSet::from(["water", "crude-oil"]),
-            Module::Science {} => {
+            module::Module::User { structures } => structures,
+            module::Module::AdvancedOilProcessing {} => {
+                return HashSet::from(["water", "crude-oil"])
+            }
+            module::Module::Science { .. } => {
                 return HashSet::from([
                     "automation-science-pack",
                     "logistic-science-pack",
@@ -344,13 +370,13 @@ impl RecipeRepository {
         inputs.difference(&outputs).copied().collect()
     }
 
-    pub fn get_outputs(&self, module: &Module) -> HashSet<&str> {
+    pub fn get_outputs(&self, module: &module::Module) -> HashSet<&str> {
         let structures = match module {
-            Module::User { structures } => structures,
-            Module::AdvancedOilProcessing {} => {
+            module::Module::User { structures } => structures,
+            module::Module::AdvancedOilProcessing {} => {
                 return HashSet::from(["heavy-oil", "light-oil", "petroleum-gas"])
             }
-            Module::Science {} => return HashSet::from(["science"]),
+            module::Module::Science { .. } => return HashSet::from(["science"]),
         };
         let mut inputs = HashSet::new();
         let mut outputs = HashSet::new();

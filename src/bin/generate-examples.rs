@@ -1,4 +1,7 @@
-use std::{collections::HashSet, fs};
+use std::{
+    collections::{HashMap, HashSet},
+    fs,
+};
 
 use facalculo::{
     data::{self, Data},
@@ -349,7 +352,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "examples/science.json",
         serde_json::to_string_pretty(&NamedModule {
             name: "science".to_owned(),
-            module: Module::Science {},
+            module: Module::Science {
+                modules: HashMap::new(),
+            },
         })?,
     )?;
     Ok(())
