@@ -1,5 +1,5 @@
 use crate::{
-    data::{Rate, RecipeRate, RecipeRepository},
+    data::{Effect, Rate, RecipeRate, RecipeRepository},
     module::{Module, NamedModule, Structure},
 };
 use nalgebra::{Matrix3, Matrix3x1};
@@ -65,12 +65,18 @@ impl<'a> Graph<'a> {
                             inputs
                                 .extend(recipe.rate().ingredients.iter().map(|i| i.name.as_str()));
                             for result in &recipe.rate().results {
-                                outputs.insert(result.name.as_str(), recipe.clone());
+                                outputs.insert(
+                                    result.name.as_str(),
+                                    (recipe.clone(), Effect::default()),
+                                );
                             }
                         }
                         Structure::Resource(resource) => {
                             let recipe = recipes.get(&resource.name).unwrap();
-                            outputs.insert(resource.name.as_str(), recipe.clone());
+                            outputs.insert(
+                                resource.name.as_str(),
+                                (recipe.clone(), Effect::default()),
+                            );
                         }
                     }
                 }
@@ -94,6 +100,7 @@ impl<'a> Graph<'a> {
                             }),
                         &output_set,
                         &exports,
+                        true,
                     );
                 }
             }
@@ -183,38 +190,26 @@ impl<'a> Graph<'a> {
                         Ok(rate) => *rate,
                         Err(_) => todo!(),
                     });
-                let productivity = Decimal::ONE
-                    + modules
+                let effect = Effect {
+                    productivity: modules
                         .iter()
                         .map(|(m, c)| recipes.modules[m].effect.productivity * Decimal::from(*c))
-                        .sum::<Decimal>();
-                let speed = Decimal::ONE
-                    + modules
+                        .sum(),
+                    speed: modules
                         .iter()
                         .map(|(m, c)| recipes.modules[m].effect.speed * Decimal::from(*c))
-                        .sum::<Decimal>();
-                let node = graph.graph.add_node(Node {
-                    required: Some(
-                        required / recipes.science_recipe.results[0].rate / productivity / speed,
-                    ),
-                    name: "science".to_owned(),
-                    structure: true,
-                });
-                for science in [
-                    "automation-science-pack",
-                    "logistic-science-pack",
-                    "military-science-pack",
-                    "chemical-science-pack",
-                    "production-science-pack",
-                    "utility-science-pack",
-                    "space-science-pack",
-                ] {
-                    graph.imports.insert(
-                        science.to_owned(),
-                        Import::Import(node, required / productivity),
-                    );
-                }
-                graph.outputs.insert("science".to_owned(), (node, required));
+                        .sum(),
+                    consumption: Decimal::ZERO,
+                    pollution: Decimal::ZERO,
+                };
+                graph.build_module_node(
+                    &HashMap::from([("science", (Rate::Recipe(&recipes.science_recipe), effect))]),
+                    "science",
+                    required,
+                    &HashSet::new(),
+                    &["science"],
+                    false,
+                );
             }
         }
         graph
@@ -222,13 +217,14 @@ impl<'a> Graph<'a> {
 
     fn build_module_node(
         &mut self,
-        outputs: &HashMap<&str, Rate>,
+        outputs: &HashMap<&str, (Rate, Effect)>,
         ingredient: &str,
         required: Decimal,
         output_set: &HashSet<&str>,
         exports: &[&str],
+        import_nodes: bool,
     ) -> NodeIndex {
-        let recipe = &outputs[ingredient];
+        let (recipe, effect) = &outputs[ingredient];
         let ratio = required
             / recipe
                 .rate()
@@ -238,7 +234,9 @@ impl<'a> Graph<'a> {
                 .unwrap()
                 .rate;
         let node = self.graph.add_node(Node {
-            required: Some(ratio),
+            required: Some(
+                ratio / (Decimal::ONE + effect.productivity) / (Decimal::ONE + effect.speed),
+            ),
             name: recipe.rate().key.to_owned(),
             structure: true,
         });
@@ -253,9 +251,18 @@ impl<'a> Graph<'a> {
             }
         }
         for edge in self.get_ingredients(recipe.rate(), ratio) {
-            let n = if output_set.contains(edge.item.as_str()) {
-                self.build_module_node(outputs, &edge.item, edge.required, output_set, exports)
-            } else {
+            let required_input = edge.required / (Decimal::ONE + effect.productivity);
+            if output_set.contains(edge.item.as_str()) {
+                let n = self.build_module_node(
+                    outputs,
+                    &edge.item,
+                    required_input,
+                    output_set,
+                    exports,
+                    import_nodes,
+                );
+                self.graph.add_edge(node, n, edge);
+            } else if import_nodes {
                 let n = self.imports.entry(edge.item.to_owned()).or_insert_with(|| {
                     Import::Node(self.graph.add_node(Node {
                         required: Some(Decimal::ZERO),
@@ -265,11 +272,13 @@ impl<'a> Graph<'a> {
                 });
                 let Import::Node(n) = n else { unreachable!() };
                 if let Some(required) = self.graph[*n].required.as_mut() {
-                    *required += edge.required;
+                    *required += required_input;
                 }
-                *n
-            };
-            self.graph.add_edge(node, n, edge);
+                self.graph.add_edge(node, *n, edge);
+            } else {
+                self.imports
+                    .insert(edge.item.to_owned(), Import::Import(node, required_input));
+            }
         }
         node
     }

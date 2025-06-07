@@ -89,7 +89,7 @@ pub struct Module {
     pub effect: Effect,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 pub struct Effect {
     #[serde(default)]
     pub productivity: Decimal,
@@ -241,6 +241,7 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
                 "chemical-science-pack",
                 "production-science-pack",
                 "utility-science-pack",
+                "space-science-pack",
             ]
             .into_iter()
             .map(|i| IngredientRate {
