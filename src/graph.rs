@@ -1,5 +1,5 @@
 use crate::{
-    data::{Rate, RecipeRate, RecipeRepository, RepositoryOption},
+    data::{Rate, RecipeRate, RecipeRepository},
     module::{Module, NamedModule, Structure},
 };
 use nalgebra::{Matrix3, Matrix3x1};
@@ -55,25 +55,45 @@ impl<'a> Graph<'a> {
         let mut graph = Graph::new(recipes);
         graph.name = module.name.clone();
         match module.module {
-            Module::User { .. } => {
-                for item in recipes.get_outputs(&module.module) {
-                    let Some(recipe) = recipes.get(item) else {
-                        continue;
-                    };
-                    graph.build_module_node(
-                        &module.module,
-                        item,
-                        *required.get(item).unwrap_or_else(|| match &defaults[item] {
-                            Ok(rate) => rate,
-                            Err(rate) => {
-                                eprintln!(
-                                    "Using {} for {item} (1 assembler)",
-                                    crate::round_string(*rate)
-                                );
-                                rate
+            Module::User { structures } => {
+                let mut inputs = HashSet::new();
+                let mut outputs = HashMap::new();
+                for structure in &structures {
+                    match structure {
+                        Structure::Recipe(recipe) => {
+                            let recipe = recipes.get(&recipe.name).unwrap();
+                            inputs
+                                .extend(recipe.rate().ingredients.iter().map(|i| i.name.as_str()));
+                            for result in &recipe.rate().results {
+                                outputs.insert(result.name.as_str(), recipe.clone());
                             }
-                        }),
-                        recipe,
+                        }
+                        Structure::Resource(resource) => {
+                            let recipe = recipes.get(&resource.name).unwrap();
+                            outputs.insert(resource.name.as_str(), recipe.clone());
+                        }
+                    }
+                }
+                let output_set: HashSet<_> = outputs.keys().cloned().collect();
+                let exports: Vec<_> = output_set.difference(&inputs).cloned().collect();
+                for item in &exports {
+                    graph.build_module_node(
+                        &outputs,
+                        item,
+                        *required
+                            .get(*item)
+                            .unwrap_or_else(|| match &defaults[*item] {
+                                Ok(rate) => rate,
+                                Err(rate) => {
+                                    eprintln!(
+                                        "Using {} for {item} (1 assembler)",
+                                        crate::round_string(*rate)
+                                    );
+                                    rate
+                                }
+                            }),
+                        &output_set,
+                        &exports,
                     );
                 }
             }
@@ -202,11 +222,13 @@ impl<'a> Graph<'a> {
 
     fn build_module_node(
         &mut self,
-        module: &Module,
+        outputs: &HashMap<&str, Rate>,
         ingredient: &str,
         required: Decimal,
-        recipe: Rate,
+        output_set: &HashSet<&str>,
+        exports: &[&str],
     ) -> NodeIndex {
+        let recipe = &outputs[ingredient];
         let ratio = required
             / recipe
                 .rate()
@@ -225,17 +247,15 @@ impl<'a> Graph<'a> {
                 .insert(ingredient.to_owned(), Import::Resource(node, required));
         }
         for result in &recipe.rate().results {
-            if self
-                .recipes
-                .get_outputs(module)
-                .contains(result.name.as_str())
-            {
+            if exports.contains(&result.name.as_str()) {
                 self.outputs
                     .insert(result.name.to_owned(), (node, required));
             }
         }
         for edge in self.get_ingredients(recipe.rate(), ratio) {
-            let n = if self.recipes.get_inputs(module).contains(edge.item.as_str()) {
+            let n = if output_set.contains(edge.item.as_str()) {
+                self.build_module_node(outputs, &edge.item, edge.required, output_set, exports)
+            } else {
                 let n = self.imports.entry(edge.item.to_owned()).or_insert_with(|| {
                     Import::Node(self.graph.add_node(Node {
                         required: Some(Decimal::ZERO),
@@ -248,27 +268,6 @@ impl<'a> Graph<'a> {
                     *required += edge.required;
                 }
                 *n
-            } else {
-                let recipe = match self.recipes.get_options(&edge.item) {
-                    RepositoryOption::None => continue,
-                    RepositoryOption::Some(recipe) => recipe,
-                    RepositoryOption::Multiple(recipes) => {
-                        let Module::User { structures } = module else {
-                            continue;
-                        };
-                        let recipes: HashSet<_> = recipes.iter().collect();
-                        let recipe = structures
-                            .iter()
-                            .map(|s| match s {
-                                Structure::Recipe(r) => &r.name,
-                                Structure::Resource(r) => &r.name,
-                            })
-                            .find(|r| recipes.contains(r))
-                            .unwrap();
-                        self.recipes.get(recipe).unwrap()
-                    }
-                };
-                self.build_module_node(module, &edge.item, edge.required, recipe)
             };
             self.graph.add_edge(node, n, edge);
         }
