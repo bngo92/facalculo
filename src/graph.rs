@@ -56,12 +56,10 @@ impl<'a> Graph<'a> {
         graph.name = module.name.clone();
         match module.module {
             Module::User { .. } => {
-                let outputs: Vec<_> = recipes
-                    .get_outputs(&module.module)
-                    .iter()
-                    .filter_map(|o| recipes.get(o).map(|r| (*o, r)))
-                    .collect();
-                for (item, recipe) in outputs {
+                for item in recipes.get_outputs(&module.module) {
+                    let Some(recipe) = recipes.get(item) else {
+                        continue;
+                    };
                     graph.build_module_node(
                         &module.module,
                         item,
@@ -237,7 +235,7 @@ impl<'a> Graph<'a> {
             }
         }
         for edge in self.get_ingredients(recipe.rate(), ratio) {
-            if self.recipes.get_inputs(module).contains(edge.item.as_str()) {
+            let n = if self.recipes.get_inputs(module).contains(edge.item.as_str()) {
                 let n = self.imports.entry(edge.item.to_owned()).or_insert_with(|| {
                     Import::Node(self.graph.add_node(Node {
                         required: Some(Decimal::ZERO),
@@ -249,16 +247,16 @@ impl<'a> Graph<'a> {
                 if let Some(required) = self.graph[*n].required.as_mut() {
                     *required += edge.required;
                 }
-                self.graph.add_edge(node, *n, edge);
+                *n
             } else {
                 let recipe = match self.recipes.get_options(&edge.item) {
                     RepositoryOption::None => continue,
                     RepositoryOption::Some(recipe) => recipe,
                     RepositoryOption::Multiple(recipes) => {
-                        let recipes: HashSet<_> = recipes.iter().collect();
                         let Module::User { structures } = module else {
                             continue;
                         };
+                        let recipes: HashSet<_> = recipes.iter().collect();
                         let recipe = structures
                             .iter()
                             .map(|s| match s {
@@ -270,9 +268,9 @@ impl<'a> Graph<'a> {
                         self.recipes.get(recipe).unwrap()
                     }
                 };
-                let n = self.build_module_node(module, &edge.item, edge.required, recipe);
-                self.graph.add_edge(node, n, edge);
-            }
+                self.build_module_node(module, &edge.item, edge.required, recipe)
+            };
+            self.graph.add_edge(node, n, edge);
         }
         node
     }
