@@ -6,7 +6,10 @@
         {
           "recipe": {
             "name": "production-science-pack",
-            "modules": {}
+            "modules": {
+              "productivity-module-3": 3,
+              "speed-module-3": 1
+            }
           }
         },
         {
