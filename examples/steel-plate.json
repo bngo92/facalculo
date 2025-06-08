@@ -5,7 +5,8 @@
       "structures": [
         {
           "recipe": {
-            "name": "steel-plate"
+            "name": "steel-plate",
+            "modules": {}
           }
         }
       ]

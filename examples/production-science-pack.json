@@ -5,32 +5,38 @@
       "structures": [
         {
           "recipe": {
-            "name": "production-science-pack"
+            "name": "production-science-pack",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "electric-furnace"
+            "name": "electric-furnace",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "stone-brick"
+            "name": "stone-brick",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "productivity-module"
+            "name": "productivity-module",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "rail"
+            "name": "rail",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "iron-stick"
+            "name": "iron-stick",
+            "modules": {}
           }
         }
       ]

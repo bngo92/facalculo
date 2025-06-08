@@ -5,7 +5,8 @@
       "structures": [
         {
           "recipe": {
-            "name": "low-density-structure"
+            "name": "low-density-structure",
+            "modules": {}
           }
         }
       ]

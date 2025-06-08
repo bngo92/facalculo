@@ -5,27 +5,32 @@
       "structures": [
         {
           "recipe": {
-            "name": "space-science-pack"
+            "name": "space-science-pack",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "iron-plate"
+            "name": "iron-plate",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "metallic-asteroid-crushing"
+            "name": "metallic-asteroid-crushing",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "carbonic-asteroid-crushing"
+            "name": "carbonic-asteroid-crushing",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "oxide-asteroid-crushing"
+            "name": "oxide-asteroid-crushing",
+            "modules": {}
           }
         }
       ]

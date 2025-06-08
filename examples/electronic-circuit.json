@@ -5,12 +5,14 @@
       "structures": [
         {
           "recipe": {
-            "name": "electronic-circuit"
+            "name": "electronic-circuit",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "copper-cable"
+            "name": "copper-cable",
+            "modules": {}
           }
         }
       ]

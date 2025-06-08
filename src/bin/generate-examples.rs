@@ -369,7 +369,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         })?,
     )?;
     fs::write(
-        "examples/rocket-fuel.json",
+        "examples/rocket/rocket-fuel.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "rocket-fuel",
             true,
@@ -385,7 +385,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?)?,
     )?;
     fs::write(
-        "examples/rocket-silo.json",
+        "examples/rocket/rocket-silo.json",
         serde_json::to_string_pretty(&NamedModule {
             name: "rocket-silo".to_owned(),
             module: Module::RocketSilo {

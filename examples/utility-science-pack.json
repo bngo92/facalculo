@@ -5,42 +5,50 @@
       "structures": [
         {
           "recipe": {
-            "name": "utility-science-pack"
+            "name": "utility-science-pack",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "flying-robot-frame"
+            "name": "flying-robot-frame",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "electric-engine-unit"
+            "name": "electric-engine-unit",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "engine-unit"
+            "name": "engine-unit",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "iron-gear-wheel"
+            "name": "iron-gear-wheel",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "pipe"
+            "name": "pipe",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "lubricant"
+            "name": "lubricant",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "battery"
+            "name": "battery",
+            "modules": {}
           }
         }
       ]

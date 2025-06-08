@@ -89,7 +89,7 @@ pub struct Module {
     pub effect: Effect,
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
 pub struct Effect {
     #[serde(default)]
     pub productivity: Decimal,
@@ -305,19 +305,14 @@ impl RecipeRepository {
         let mut outputs = HashSet::new();
         for structure in structures {
             match structure {
-                Structure::Recipe(recipe) => {
+                Structure::Recipe { name, .. } => {
                     inputs.extend(
-                        self.recipes[&recipe.name]
+                        self.recipes[name]
                             .ingredients
                             .iter()
                             .map(|i| i.name.as_str()),
                     );
-                    outputs.extend(
-                        self.recipes[&recipe.name]
-                            .results
-                            .iter()
-                            .map(|i| i.name.as_str()),
-                    );
+                    outputs.extend(self.recipes[name].results.iter().map(|i| i.name.as_str()));
                 }
                 Structure::Resource(resource) => {
                     outputs.insert(self.resources[&resource.name].key.as_str());
@@ -352,19 +347,14 @@ impl RecipeRepository {
         let mut outputs = HashSet::new();
         for structure in structures {
             match structure {
-                Structure::Recipe(recipe) => {
+                Structure::Recipe { name, .. } => {
                     inputs.extend(
-                        self.recipes[&recipe.name]
+                        self.recipes[name]
                             .ingredients
                             .iter()
                             .map(|i| i.name.as_str()),
                     );
-                    outputs.extend(
-                        self.recipes[&recipe.name]
-                            .results
-                            .iter()
-                            .map(|i| i.name.as_str()),
-                    );
+                    outputs.extend(self.recipes[name].results.iter().map(|i| i.name.as_str()));
                 }
                 Structure::Resource(resource) => {
                     inputs.insert(self.resources[&resource.name].key.as_str());
@@ -387,19 +377,14 @@ impl RecipeRepository {
         let mut outputs = HashSet::new();
         for structure in structures {
             match structure {
-                Structure::Recipe(recipe) => {
+                Structure::Recipe { name, .. } => {
                     inputs.extend(
-                        self.recipes[&recipe.name]
+                        self.recipes[name]
                             .ingredients
                             .iter()
                             .map(|i| i.name.as_str()),
                     );
-                    outputs.extend(
-                        self.recipes[&recipe.name]
-                            .results
-                            .iter()
-                            .map(|i| i.name.as_str()),
-                    );
+                    outputs.extend(self.recipes[name].results.iter().map(|i| i.name.as_str()));
                 }
                 Structure::Resource(resource) => {
                     outputs.insert(self.resources[&resource.name].key.as_str());

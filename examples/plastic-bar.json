@@ -5,7 +5,8 @@
       "structures": [
         {
           "recipe": {
-            "name": "plastic-bar"
+            "name": "plastic-bar",
+            "modules": {}
           }
         }
       ]

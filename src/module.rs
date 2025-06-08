@@ -33,9 +33,10 @@ impl<'a> ModuleBuilder<'_> {
         let rate = &self.repository.get(key).unwrap();
         match rate {
             Rate::Recipe(recipe) => {
-                self.structures.push(Structure::Recipe(Recipe {
+                self.structures.push(Structure::Recipe {
                     name: recipe.key.clone(),
-                }));
+                    modules: HashMap::new(),
+                });
                 if expand {
                     self.add_node(recipe).unwrap();
                 }
@@ -71,9 +72,10 @@ impl<'a> ModuleBuilder<'_> {
                 };
                 match rate {
                     Rate::Recipe(recipe) => {
-                        self.structures.push(Structure::Recipe(Recipe {
+                        self.structures.push(Structure::Recipe {
                             name: recipe.key.clone(),
-                        }));
+                            modules: HashMap::new(),
+                        });
                         self.add_node(recipe)?;
                     }
                     Rate::Resource(resource) => {
@@ -124,15 +126,14 @@ pub enum Module {
 #[serde(rename_all = "lowercase")]
 pub enum Structure {
     Resource(Resource),
-    Recipe(Recipe),
+    Recipe {
+        name: String,
+        #[serde(default)]
+        modules: HashMap<String, i32>,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Resource {
-    pub name: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Recipe {
     pub name: String,
 }

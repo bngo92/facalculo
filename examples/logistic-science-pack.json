@@ -5,27 +5,32 @@
       "structures": [
         {
           "recipe": {
-            "name": "logistic-science-pack"
+            "name": "logistic-science-pack",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "inserter"
+            "name": "inserter",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "iron-gear-wheel"
+            "name": "iron-gear-wheel",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "transport-belt"
+            "name": "transport-belt",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "iron-gear-wheel"
+            "name": "iron-gear-wheel",
+            "modules": {}
           }
         }
       ]

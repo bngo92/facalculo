@@ -5,12 +5,14 @@
       "structures": [
         {
           "recipe": {
-            "name": "rocket-fuel"
+            "name": "rocket-fuel",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "solid-fuel-from-light-oil"
+            "name": "solid-fuel-from-light-oil",
+            "modules": {}
           }
         }
       ]

@@ -5,7 +5,8 @@
       "structures": [
         {
           "recipe": {
-            "name": "sulfuric-acid"
+            "name": "sulfuric-acid",
+            "modules": {}
           }
         }
       ]

@@ -5,32 +5,38 @@
       "structures": [
         {
           "recipe": {
-            "name": "military-science-pack"
+            "name": "military-science-pack",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "piercing-rounds-magazine"
+            "name": "piercing-rounds-magazine",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "firearm-magazine"
+            "name": "firearm-magazine",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "grenade"
+            "name": "grenade",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "stone-wall"
+            "name": "stone-wall",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "stone-brick"
+            "name": "stone-brick",
+            "modules": {}
           }
         }
       ]

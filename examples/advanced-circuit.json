@@ -5,12 +5,14 @@
       "structures": [
         {
           "recipe": {
-            "name": "advanced-circuit"
+            "name": "advanced-circuit",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "copper-cable"
+            "name": "copper-cable",
+            "modules": {}
           }
         }
       ]

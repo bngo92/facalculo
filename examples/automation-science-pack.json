@@ -5,12 +5,14 @@
       "structures": [
         {
           "recipe": {
-            "name": "automation-science-pack"
+            "name": "automation-science-pack",
+            "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "iron-gear-wheel"
+            "name": "iron-gear-wheel",
+            "modules": {}
           }
         }
       ]

@@ -60,15 +60,28 @@ impl<'a> Graph<'a> {
                 let mut outputs = HashMap::new();
                 for structure in &structures {
                     match structure {
-                        Structure::Recipe(recipe) => {
-                            let recipe = recipes.get(&recipe.name).unwrap();
+                        Structure::Recipe { name, modules } => {
+                            let recipe = recipes.get(name).unwrap();
                             inputs
                                 .extend(recipe.rate().ingredients.iter().map(|i| i.name.as_str()));
+                            let effect = Effect {
+                                productivity: modules
+                                    .iter()
+                                    .map(|(m, c)| {
+                                        recipes.modules[m].effect.productivity * Decimal::from(*c)
+                                    })
+                                    .sum(),
+                                speed: modules
+                                    .iter()
+                                    .map(|(m, c)| {
+                                        recipes.modules[m].effect.speed * Decimal::from(*c)
+                                    })
+                                    .sum(),
+                                consumption: Decimal::ZERO,
+                                pollution: Decimal::ZERO,
+                            };
                             for result in &recipe.rate().results {
-                                outputs.insert(
-                                    result.name.as_str(),
-                                    (recipe.clone(), Effect::default()),
-                                );
+                                outputs.insert(result.name.as_str(), (recipe.clone(), effect));
                             }
                         }
                         Structure::Resource(resource) => {
@@ -156,7 +169,7 @@ impl<'a> Graph<'a> {
                             (node, Decimal::from_f64(required[output]).unwrap()),
                         );
                     }
-                    for edge in graph.get_ingredients(recipe, ratio) {
+                    for edge in graph.get_ingredients(recipe, ratio, Decimal::ZERO) {
                         match last {
                             Some((last, item)) if edge.item == *item => {
                                 graph.graph.add_edge(node, last, edge);
@@ -248,7 +261,7 @@ impl<'a> Graph<'a> {
                     HashMap::from([("rocket", (Rate::Recipe(&rocket_recipe), Effect::default()))]);
                 let recipe = recipes.get("rocket-part").unwrap();
                 for result in &recipe.rate().results {
-                    outputs.insert(result.name.as_str(), (recipe.clone(), effect.clone()));
+                    outputs.insert(result.name.as_str(), (recipe.clone(), effect));
                 }
                 graph.build_module_node(
                     &outputs,
@@ -298,13 +311,12 @@ impl<'a> Graph<'a> {
                     .insert(result.name.to_owned(), (node, required));
             }
         }
-        for edge in self.get_ingredients(recipe.rate(), ratio) {
-            let required_input = edge.required / (Decimal::ONE + effect.productivity);
+        for edge in self.get_ingredients(recipe.rate(), ratio, effect.productivity) {
             if output_set.contains(edge.item.as_str()) {
                 let n = self.build_module_node(
                     outputs,
                     &edge.item,
-                    required_input,
+                    edge.required,
                     output_set,
                     exports,
                     import_nodes,
@@ -320,23 +332,28 @@ impl<'a> Graph<'a> {
                 });
                 let Import::Node(n) = n else { unreachable!() };
                 if let Some(required) = self.graph[*n].required.as_mut() {
-                    *required += required_input;
+                    *required += edge.required;
                 }
                 self.graph.add_edge(node, *n, edge);
             } else {
                 self.imports
-                    .insert(edge.item.to_owned(), Import::Import(node, required_input));
+                    .insert(edge.item.to_owned(), Import::Import(node, edge.required));
             }
         }
         node
     }
 
-    pub fn get_ingredients(&self, recipe: &RecipeRate, ratio: Decimal) -> Vec<Edge> {
+    fn get_ingredients(
+        &self,
+        recipe: &RecipeRate,
+        ratio: Decimal,
+        productivity: Decimal,
+    ) -> Vec<Edge> {
         recipe
             .ingredients
             .iter()
             .map(move |i| Edge {
-                required: ratio * i.rate,
+                required: ratio * i.rate / (Decimal::ONE + productivity),
                 item: i.name.to_owned(),
             })
             .collect()
