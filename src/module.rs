@@ -114,6 +114,10 @@ pub enum Module {
         #[serde(default)]
         modules: HashMap<String, i32>,
     },
+    RocketSilo {
+        #[serde(default)]
+        modules: HashMap<String, i32>,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

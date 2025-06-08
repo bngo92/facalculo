@@ -1,0 +1,19 @@
+{
+  "name": "rocket-fuel",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "rocket-fuel"
+          }
+        },
+        {
+          "recipe": {
+            "name": "solid-fuel-from-light-oil"
+          }
+        }
+      ]
+    }
+  }
+}

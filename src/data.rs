@@ -344,6 +344,9 @@ impl RecipeRepository {
                     "space-science-pack",
                 ])
             }
+            module::Module::RocketSilo { .. } => {
+                return HashSet::from(["low-density-structure", "processing-unit", "rocket-fuel"])
+            }
         };
         let mut inputs = HashSet::new();
         let mut outputs = HashSet::new();
@@ -378,6 +381,7 @@ impl RecipeRepository {
                 return HashSet::from(["heavy-oil", "light-oil", "petroleum-gas"])
             }
             module::Module::Science { .. } => return HashSet::from(["science"]),
+            module::Module::RocketSilo { .. } => return HashSet::from(["rocket"]),
         };
         let mut inputs = HashSet::new();
         let mut outputs = HashSet::new();

@@ -1,0 +1,14 @@
+{
+  "name": "low-density-structure",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "low-density-structure"
+          }
+        }
+      ]
+    }
+  }
+}

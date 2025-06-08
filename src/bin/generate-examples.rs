@@ -294,6 +294,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?)?,
     )?;
     fs::write(
+        "examples/low-density-structure.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "low-density-structure",
+            true,
+            &["steel-plate", "copper-plate", "plastic-bar"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>(),
+            &["low-density-structure"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect(),
+            &recipe_rates,
+        )?)?,
+    )?;
+    fs::write(
         "examples/utility-science-pack.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "utility-science-pack",
@@ -301,7 +317,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &[
                 "steel-plate",
                 "copper-plate",
-                "plastic-bar",
+                "low-density-structure",
                 "iron-plate",
                 "processing-unit",
                 "heavy-oil",
@@ -311,15 +327,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .into_iter()
             .map(ToOwned::to_owned)
             .collect::<Vec<_>>(),
-            &[
-                "low-density-structure",
-                "iron-gear-wheel",
-                "pipe",
-                "lubricant",
-            ]
-            .into_iter()
-            .map(ToOwned::to_owned)
-            .collect(),
+            &["iron-gear-wheel", "pipe", "lubricant"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect(),
             &recipe_rates,
         )?)?,
     )?;
@@ -353,6 +364,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         serde_json::to_string_pretty(&NamedModule {
             name: "science".to_owned(),
             module: Module::Science {
+                modules: HashMap::new(),
+            },
+        })?,
+    )?;
+    fs::write(
+        "examples/rocket-fuel.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "rocket-fuel",
+            true,
+            &["light-oil"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>(),
+            &["solid-fuel-from-light-oil", "rocket-fuel"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect(),
+            &recipe_rates,
+        )?)?,
+    )?;
+    fs::write(
+        "examples/rocket-silo.json",
+        serde_json::to_string_pretty(&NamedModule {
+            name: "rocket-silo".to_owned(),
+            module: Module::RocketSilo {
                 modules: HashMap::new(),
             },
         })?,

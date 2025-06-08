@@ -1,5 +1,5 @@
 use crate::{
-    data::{Effect, Rate, RecipeRate, RecipeRepository},
+    data::{Effect, IngredientRate, Rate, RecipeRate, RecipeRepository},
     module::{Module, NamedModule, Structure},
 };
 use nalgebra::{Matrix3, Matrix3x1};
@@ -208,6 +208,54 @@ impl<'a> Graph<'a> {
                     required,
                     &HashSet::new(),
                     &["science"],
+                    false,
+                );
+            }
+            Module::RocketSilo { modules } => {
+                let required =
+                    required
+                        .get("rocket")
+                        .copied()
+                        .unwrap_or_else(|| match &defaults["rocket"] {
+                            Ok(rate) => *rate,
+                            Err(_) => todo!(),
+                        });
+                let effect = Effect {
+                    productivity: modules
+                        .iter()
+                        .map(|(m, c)| recipes.modules[m].effect.productivity * Decimal::from(*c))
+                        .sum(),
+                    speed: modules
+                        .iter()
+                        .map(|(m, c)| recipes.modules[m].effect.speed * Decimal::from(*c))
+                        .sum(),
+                    consumption: Decimal::ZERO,
+                    pollution: Decimal::ZERO,
+                };
+                let rocket_recipe = RecipeRate {
+                    category: None,
+                    key: "rocket".to_owned(),
+                    ingredients: vec![IngredientRate {
+                        rate: Decimal::from(50),
+                        name: "rocket-part".to_owned(),
+                    }],
+                    results: vec![IngredientRate {
+                        rate: Decimal::ONE,
+                        name: "rocket".to_owned(),
+                    }],
+                };
+                let mut outputs =
+                    HashMap::from([("rocket", (Rate::Recipe(&rocket_recipe), Effect::default()))]);
+                let recipe = recipes.get("rocket-part").unwrap();
+                for result in &recipe.rate().results {
+                    outputs.insert(result.name.as_str(), (recipe.clone(), effect.clone()));
+                }
+                graph.build_module_node(
+                    &outputs,
+                    "rocket",
+                    required,
+                    &HashSet::from(["rocket-part"]),
+                    &["rocket"],
                     false,
                 );
             }

@@ -10,11 +10,6 @@
         },
         {
           "recipe": {
-            "name": "low-density-structure"
-          }
-        },
-        {
-          "recipe": {
             "name": "flying-robot-frame"
           }
         },

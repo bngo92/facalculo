@@ -1,0 +1,10 @@
+{
+  "name": "rocket-silo",
+  "module": {
+    "rocket-silo": {
+      "modules": {
+        "productivity-module-3": 4
+      }
+    }
+  }
+}
