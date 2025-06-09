@@ -51,6 +51,7 @@ impl<'a> Graph<'a> {
         required: &HashMap<String, Decimal>,
         defaults: &HashMap<String, Result<Decimal, Decimal>>,
         recipes: &'a RecipeRepository,
+        asm: i64,
     ) -> Graph<'a> {
         let mut graph = Graph::new(recipes);
         graph.name = module.name.clone();
@@ -114,6 +115,7 @@ impl<'a> Graph<'a> {
                         &output_set,
                         &exports,
                         true,
+                        asm,
                     );
                 }
             }
@@ -161,7 +163,7 @@ impl<'a> Graph<'a> {
                     let node = graph.graph.add_node(Node {
                         required: Some(ratio),
                         name: recipe.key.to_owned(),
-                        structure: true,
+                        structure: Some(recipe.structure(asm)),
                     });
                     if required[output] > 0. {
                         graph.outputs.insert(
@@ -180,7 +182,7 @@ impl<'a> Graph<'a> {
                                         Import::Node(graph.graph.add_node(Node {
                                             required: Some(Decimal::ZERO),
                                             name: edge.item.to_owned(),
-                                            structure: false,
+                                            structure: None,
                                         }))
                                     },
                                 );
@@ -222,6 +224,7 @@ impl<'a> Graph<'a> {
                     &HashSet::new(),
                     &["science"],
                     false,
+                    asm,
                 );
             }
             Module::RocketSilo { modules } => {
@@ -270,6 +273,7 @@ impl<'a> Graph<'a> {
                     &HashSet::from(["rocket-part"]),
                     &["rocket"],
                     false,
+                    asm,
                 );
             }
         }
@@ -284,6 +288,7 @@ impl<'a> Graph<'a> {
         output_set: &HashSet<&str>,
         exports: &[&str],
         import_nodes: bool,
+        asm: i64,
     ) -> NodeIndex {
         let (recipe, effect) = &outputs[ingredient];
         let ratio = required
@@ -299,7 +304,7 @@ impl<'a> Graph<'a> {
                 ratio / (Decimal::ONE + effect.productivity) / (Decimal::ONE + effect.speed),
             ),
             name: recipe.rate().key.to_owned(),
-            structure: true,
+            structure: Some(recipe.rate().structure(asm)),
         });
         if let Rate::Resource(_) = recipe {
             self.imports
@@ -320,6 +325,7 @@ impl<'a> Graph<'a> {
                     output_set,
                     exports,
                     import_nodes,
+                    asm,
                 );
                 self.graph.add_edge(node, n, edge);
             } else if import_nodes {
@@ -327,7 +333,7 @@ impl<'a> Graph<'a> {
                     Import::Node(self.graph.add_node(Node {
                         required: Some(Decimal::ZERO),
                         name: edge.item.to_owned(),
-                        structure: false,
+                        structure: None,
                     }))
                 });
                 let Import::Node(n) = n else { unreachable!() };
@@ -470,7 +476,7 @@ impl<'a> Graph<'a> {
 pub struct Node {
     pub required: Option<Decimal>,
     pub name: String,
-    pub structure: bool,
+    pub structure: Option<&'static str>,
 }
 
 impl Node {
@@ -481,15 +487,24 @@ impl Node {
             self.name.clone()
         }
     }
+
+    pub fn to_string(&self, details: bool) -> String {
+        let s = if let Some(required) = self.required {
+            format!("{} {}", crate::round_string(required), self.name)
+        } else {
+            self.name.to_string()
+        };
+        if let (true, Some(structure)) = (details, &self.structure) {
+            format!("{}\\n{}", s, structure)
+        } else {
+            s
+        }
+    }
 }
 
 impl Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(required) = self.required {
-            write!(f, "{} {}", crate::round_string(required), self.name)
-        } else {
-            write!(f, "{}", self.name)
-        }
+        write!(f, "{}", self.to_string(false))
     }
 }
 

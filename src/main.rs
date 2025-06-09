@@ -65,6 +65,8 @@ enum Commands {
         item: Vec<Vec<String>>,
         #[arg(short, long)]
         rate: Option<Decimal>,
+        #[arg(short, long)]
+        details: bool,
     },
 }
 
@@ -146,9 +148,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let graphs: Vec<_> = modules
                 .iter()
                 .cloned()
-                .map(|m| Graph::from_module(m, &required, &defaults, &recipe_rates))
+                .map(|m| Graph::from_module(m, &required, &defaults, &recipe_rates, args.asm))
                 .collect();
-            let out = compute::render(&graphs, &HashMap::new(), &HashSet::new())?;
+            let out = compute::render(&graphs, &HashMap::new(), &HashSet::new(), false)?;
             if args.render {
                 let g = parse(&out)?;
                 exec(
@@ -187,6 +189,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             files,
             item: items,
             rate,
+            details,
         }) => {
             // Parse arguments
             let mut modules = files
@@ -267,6 +270,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &required,
                     &defaults,
                     &recipe_rates,
+                    args.asm,
                 );
                 for (import, node) in &graph.imports {
                     // We do not create import nodes for science packs
@@ -288,6 +292,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &graphs,
                 &imports,
                 &outputs.into_iter().map(ToOwned::to_owned).collect(),
+                details,
             )?;
             let g = parse(&out)?;
             let format = match args.out.as_deref() {
@@ -331,6 +336,7 @@ mod tests {
             )]),
             &HashMap::new(),
             &recipe_rates,
+            1,
         );
         let graph = graph.graph;
         let mut nodes: Vec<_> = graph.node_weights().collect();
@@ -403,6 +409,7 @@ mod tests {
             )]),
             &HashMap::new(),
             &recipe_rates,
+            1,
         );
         graph.group_nodes(Vec::new());
         let graph = graph.graph;
@@ -477,6 +484,7 @@ mod tests {
             )]),
             &HashMap::new(),
             &recipe_rates,
+            1,
         );
         graph.group_nodes(vec![String::from("copper-plate")]);
         let graph = graph.graph;

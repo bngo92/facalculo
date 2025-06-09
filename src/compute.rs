@@ -15,6 +15,7 @@ pub fn render(
     graphs: &[Graph],
     imports: &HashMap<String, Vec<(usize, Decimal)>>,
     used_imports: &HashSet<String>,
+    details: bool,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let mut f = String::new();
     writeln!(f, "digraph {{")?;
@@ -24,7 +25,7 @@ pub fn render(
     // Offset for output and input nodes
     let mut index = 2;
     for graph in graphs {
-        index += render_module(&mut f, graph, INDENT, index, imports, used_imports)?;
+        index += render_module(&mut f, graph, INDENT, index, imports, used_imports, details)?;
     }
     writeln!(f, "}}")?;
     Ok(f)
@@ -37,6 +38,7 @@ fn render_module(
     index: usize,
     imports: &HashMap<String, Vec<(usize, Decimal)>>,
     used_imports: &HashSet<String>,
+    details: bool,
 ) -> Result<usize, Box<dyn std::error::Error>> {
     let g = &graph.graph;
     writeln!(
@@ -45,13 +47,13 @@ fn render_module(
         graph.name.replace('-', "_")
     )?;
     for node in g.node_references() {
-        if node.weight().structure {
+        if node.weight().structure.is_some() {
             writeln!(
                 f,
                 "{indent}{}{} [label = \"{}\" shape=record]",
                 INDENT,
                 g.to_index(node.id()) + index,
-                node.weight()
+                node.weight().to_string(details)
             )?;
         } else {
             writeln!(
@@ -59,7 +61,7 @@ fn render_module(
                 "{indent}{}{} [label = \"{}\"]",
                 INDENT,
                 g.to_index(node.id()) + index,
-                node.weight()
+                node.weight().to_string(details)
             )?;
         }
     }

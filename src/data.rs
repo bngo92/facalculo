@@ -418,6 +418,49 @@ pub struct RecipeRate {
     pub results: Vec<IngredientRate>,
 }
 
+impl RecipeRate {
+    pub fn structure(&self, asm: i64) -> &'static str {
+        let asm = match asm {
+            1 => "assembling-machine-1",
+            2 => "assembling-machine-2",
+            3 => "assembling-machine-3",
+            _ => unreachable!(),
+        };
+        if let Some(structure) = match self.key.as_str() {
+            "copper-ore" => Some("electric-mining-drill"),
+            "iron-ore" => Some("electric-mining-drill"),
+            "coal" => Some("electric-mining-drill"),
+            "stone" => Some("electric-mining-drill"),
+            "water" => Some("offshore-pump"),
+            "crude-oil" => Some("pumpjack"),
+            "science" => Some("lab"),
+            "rocket" => Some(""),
+            _ => None,
+        } {
+            structure
+        } else {
+            match self.category {
+                None => asm,
+                Some(Category::AdvancedCrafting) => asm,
+                Some(Category::Chemistry) => "chemical-plant",
+                Some(Category::ChemistryOrCryogenics) => "chemical-plant",
+                Some(Category::Crafting) => asm,
+                Some(Category::CraftingWithFluid) => asm,
+                Some(Category::Crushing) => "asteroid-crusher",
+                Some(Category::Electronics) => asm,
+                Some(Category::ElectronicsWithFluid) => asm,
+                Some(Category::OilProcessing) => "oil-refinery",
+                Some(Category::OrganicOrAssembling) => asm,
+                Some(Category::OrganicOrChemistry) => "chemical-plant",
+                Some(Category::Pressing) => asm,
+                Some(Category::RocketBuilding) => "rocket-silo",
+                Some(Category::Smelting) => "electric-furnace",
+                _ => todo!("{}", self.key),
+            }
+        }
+    }
+}
+
 impl Display for RecipeRate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
