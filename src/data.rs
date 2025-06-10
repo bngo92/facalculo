@@ -12,9 +12,16 @@ use serde_json::Value;
 use crate::module::{self, Structure};
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Data<'a> {
-    pub fluid: HashMap<&'a str, Value>,
     recipe: HashMap<&'a str, Recipe>,
+    pub fluid: HashMap<&'a str, Value>,
+    furnace: HashMap<String, AssemblingMachine>,
+    offshore_pump: HashMap<String, AssemblingMachine>,
+    assembling_machine: HashMap<String, AssemblingMachine>,
+    lab: HashMap<String, AssemblingMachine>,
+    rocket_silo: HashMap<String, AssemblingMachine>,
+    mining_drill: HashMap<String, AssemblingMachine>,
     #[serde(borrow)]
     resource: HashMap<&'a str, Resource>,
     module: HashMap<&'a str, Module>,
@@ -99,6 +106,35 @@ pub struct Effect {
     pub pollution: Decimal,
     #[serde(default)]
     pub speed: Decimal,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AssemblingMachine {
+    name: String,
+    energy_usage: String,
+}
+
+impl AssemblingMachine {
+    pub fn energy(&self) -> Decimal {
+        if self.name == "offshore-pump" {
+            return Decimal::ZERO;
+        }
+        let (n, unit) = self
+            .energy_usage
+            .chars()
+            .partition::<Vec<_>, _>(|c| c.is_ascii_digit());
+        let mut n = Decimal::from_str(&n.into_iter().collect::<String>()).unwrap()
+            * match unit.into_iter().collect::<String>().as_str() {
+                "kW" => Decimal::ONE_THOUSAND,
+                "mW" => Decimal::from(1000000),
+                _ => unimplemented!(),
+            };
+        // https://forums.factorio.com/viewtopic.php?t=109602
+        if self.name == "assembling-machine-3" {
+            n *= Decimal::from(31) / Decimal::from(30);
+        }
+        n
+    }
 }
 
 pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
@@ -221,6 +257,12 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
         }
     }
     let science_rate = Decimal::from_f64((1. + 2.5) / 60.).unwrap();
+    let mut assembling_machines = data.assembling_machine.clone();
+    assembling_machines.extend(data.lab.clone());
+    assembling_machines.extend(data.rocket_silo.clone());
+    assembling_machines.extend(data.furnace.clone());
+    assembling_machines.extend(data.mining_drill.clone());
+    assembling_machines.extend(data.offshore_pump.clone());
     RecipeRepository {
         recipes: recipe_rates,
         resources,
@@ -254,6 +296,7 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
                 name: "science".to_owned(),
             }],
         },
+        assembling_machines,
     }
 }
 
@@ -270,6 +313,7 @@ pub struct RecipeRepository {
     pub modules: HashMap<String, Module>,
     science: String,
     pub science_recipe: RecipeRate,
+    pub assembling_machines: HashMap<String, AssemblingMachine>,
 }
 
 impl RecipeRepository {
@@ -446,7 +490,7 @@ impl RecipeRate {
                 Some(Category::ChemistryOrCryogenics) => "chemical-plant",
                 Some(Category::Crafting) => asm,
                 Some(Category::CraftingWithFluid) => asm,
-                Some(Category::Crushing) => "asteroid-crusher",
+                Some(Category::Crushing) => "crusher",
                 Some(Category::Electronics) => asm,
                 Some(Category::ElectronicsWithFluid) => asm,
                 Some(Category::OilProcessing) => "oil-refinery",

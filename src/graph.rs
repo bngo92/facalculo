@@ -78,7 +78,12 @@ impl<'a> Graph<'a> {
                                         recipes.modules[m].effect.speed * Decimal::from(*c)
                                     })
                                     .sum(),
-                                consumption: Decimal::ZERO,
+                                consumption: modules
+                                    .iter()
+                                    .map(|(m, c)| {
+                                        recipes.modules[m].effect.consumption * Decimal::from(*c)
+                                    })
+                                    .sum(),
                                 pollution: Decimal::ZERO,
                             };
                             for result in &recipe.rate().results {
@@ -164,6 +169,7 @@ impl<'a> Graph<'a> {
                         required: Some(ratio),
                         name: recipe.key.to_owned(),
                         structure: Some(recipe.structure(asm)),
+                        energy: ratio * recipes.assembling_machines[recipe.structure(asm)].energy(),
                     });
                     if required[output] > 0. {
                         graph.outputs.insert(
@@ -183,6 +189,7 @@ impl<'a> Graph<'a> {
                                             required: Some(Decimal::ZERO),
                                             name: edge.item.to_owned(),
                                             structure: None,
+                                            energy: Decimal::ZERO,
                                         }))
                                     },
                                 );
@@ -214,7 +221,10 @@ impl<'a> Graph<'a> {
                         .iter()
                         .map(|(m, c)| recipes.modules[m].effect.speed * Decimal::from(*c))
                         .sum(),
-                    consumption: Decimal::ZERO,
+                    consumption: modules
+                        .iter()
+                        .map(|(m, c)| recipes.modules[m].effect.consumption * Decimal::from(*c))
+                        .sum(),
                     pollution: Decimal::ZERO,
                 };
                 graph.build_module_node(
@@ -245,7 +255,10 @@ impl<'a> Graph<'a> {
                         .iter()
                         .map(|(m, c)| recipes.modules[m].effect.speed * Decimal::from(*c))
                         .sum(),
-                    consumption: Decimal::ZERO,
+                    consumption: modules
+                        .iter()
+                        .map(|(m, c)| recipes.modules[m].effect.consumption * Decimal::from(*c))
+                        .sum(),
                     pollution: Decimal::ZERO,
                 };
                 let rocket_recipe = RecipeRate {
@@ -299,12 +312,20 @@ impl<'a> Graph<'a> {
                 .find(|i| i.name == ingredient)
                 .unwrap()
                 .rate;
+        let structure = recipe.rate().structure(asm);
+        let structures =
+            ratio / (Decimal::ONE + effect.productivity) / (Decimal::ONE + effect.speed);
         let node = self.graph.add_node(Node {
-            required: Some(
-                ratio / (Decimal::ONE + effect.productivity) / (Decimal::ONE + effect.speed),
-            ),
+            required: Some(structures),
             name: recipe.rate().key.to_owned(),
-            structure: Some(recipe.rate().structure(asm)),
+            structure: Some(structure),
+            energy: if structure.is_empty() {
+                Decimal::ZERO
+            } else {
+                structures
+                    * self.recipes.assembling_machines[structure].energy()
+                    * (Decimal::ONE + effect.consumption)
+            },
         });
         if let Rate::Resource(_) = recipe {
             self.imports
@@ -334,6 +355,7 @@ impl<'a> Graph<'a> {
                         required: Some(Decimal::ZERO),
                         name: edge.item.to_owned(),
                         structure: None,
+                        energy: Decimal::ZERO,
                     }))
                 });
                 let Import::Node(n) = n else { unreachable!() };
@@ -477,6 +499,7 @@ pub struct Node {
     pub required: Option<Decimal>,
     pub name: String,
     pub structure: Option<&'static str>,
+    pub energy: Decimal,
 }
 
 impl Node {
@@ -495,7 +518,12 @@ impl Node {
             self.name.to_string()
         };
         if let (true, Some(structure)) = (details, &self.structure) {
-            format!("{}\\n{}", s, structure)
+            format!(
+                "{}\\n{}\\n{}",
+                s,
+                structure,
+                crate::round_string(self.energy)
+            )
         } else {
             s
         }
