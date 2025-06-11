@@ -261,9 +261,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     )
                 })
                 .collect();
-            let mut index = 2;
             let mut graphs = Vec::new();
-            let mut imports: HashMap<String, Vec<(usize, Decimal)>> = HashMap::new();
+            let mut imports: HashMap<String, Vec<(String, usize, Decimal)>> = HashMap::new();
             for module in module_order {
                 let graph = Graph::from_module(
                     modules.remove(&module).unwrap(),
@@ -280,12 +279,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Import::Import(node, required) => (*required, node),
                     };
                     *required.entry(import.clone()).or_default() += import_required;
-                    imports
-                        .entry(import.clone())
-                        .or_default()
-                        .push((index + node.index(), import_required));
+                    imports.entry(import.clone()).or_default().push((
+                        graph.name.clone(),
+                        node.index(),
+                        import_required,
+                    ));
                 }
-                index += graph.graph.node_count();
                 graphs.push(graph);
             }
             let out = compute::render(

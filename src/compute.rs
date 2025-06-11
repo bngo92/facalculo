@@ -13,7 +13,7 @@ static INDENT: &str = "    ";
 
 pub fn render(
     graphs: &[Graph],
-    imports: &HashMap<String, Vec<(usize, Decimal)>>,
+    imports: &HashMap<String, Vec<(String, usize, Decimal)>>,
     used_imports: &HashSet<String>,
     details: bool,
 ) -> Result<String, Box<dyn std::error::Error>> {
@@ -23,9 +23,19 @@ pub fn render(
     writeln!(f, "{INDENT}0 [label = \"outputs\"]")?;
     writeln!(f, "{INDENT}1 [label = \"inputs\"]")?;
     // Offset for output and input nodes
-    let mut index = 2;
+    let mut offset = 2;
+    let mut offsets = HashMap::new();
     for graph in graphs {
-        index += render_module(&mut f, graph, INDENT, index, imports, used_imports, details)?;
+        offsets.insert(graph.name.as_str(), offset);
+        offset += render_module(
+            &mut f,
+            graph,
+            INDENT,
+            &offsets,
+            imports,
+            used_imports,
+            details,
+        )?;
     }
     writeln!(f, "}}")?;
     Ok(f)
@@ -35,11 +45,12 @@ fn render_module(
     f: &mut impl Write,
     graph: &Graph,
     indent: &str,
-    index: usize,
-    imports: &HashMap<String, Vec<(usize, Decimal)>>,
+    offsets: &HashMap<&str, usize>,
+    imports: &HashMap<String, Vec<(String, usize, Decimal)>>,
     used_imports: &HashSet<String>,
     details: bool,
 ) -> Result<usize, Box<dyn std::error::Error>> {
+    let index = offsets[graph.name.as_str()];
     let g = &graph.graph;
     writeln!(
         f,
@@ -68,15 +79,15 @@ fn render_module(
     writeln!(f, "{indent}}}")?;
     for (o, (node, required)) in &graph.outputs {
         if let Some(dependencies) = imports.get(o.as_str()) {
-            for &(import, required) in dependencies {
+            for (import_module, import, required) in dependencies {
                 writeln!(
                     f,
                     "{indent}{} -> {} [label = \"{}\" dir=back]",
-                    import,
+                    offsets[import_module.as_str()] + import,
                     node.index() + index,
                     Edge {
                         item: (*o).to_owned(),
-                        required,
+                        required: *required,
                     }
                 )?;
             }
