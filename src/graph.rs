@@ -92,12 +92,9 @@ impl<'a> Graph<'a> {
                                 outputs.insert(result.name.as_str(), (recipe.clone(), effect));
                             }
                         }
-                        Structure::Resource(resource) => {
-                            let recipe = recipes.get(&resource.name).unwrap();
-                            outputs.insert(
-                                resource.name.as_str(),
-                                (recipe.clone(), Effect::default()),
-                            );
+                        Structure::Resource { name, .. } => {
+                            let recipe = recipes.get(name).unwrap();
+                            outputs.insert(name.as_str(), (recipe.clone(), Effect::default()));
                         }
                     }
                 }

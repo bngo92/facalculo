@@ -5,7 +5,8 @@
       "structures": [
         {
           "resource": {
-            "name": "coal"
+            "name": "coal",
+            "structure": null
           }
         }
       ]

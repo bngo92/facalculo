@@ -42,9 +42,10 @@ impl<'a> ModuleBuilder<'_> {
                 }
             }
             Rate::Resource(resource) => {
-                self.structures.push(Structure::Resource(Resource {
+                self.structures.push(Structure::Resource {
                     name: resource.key.clone(),
-                }));
+                    structure: None,
+                });
             }
         }
     }
@@ -79,9 +80,10 @@ impl<'a> ModuleBuilder<'_> {
                         self.add_node(recipe)?;
                     }
                     Rate::Resource(resource) => {
-                        self.structures.push(Structure::Resource(Resource {
+                        self.structures.push(Structure::Resource {
                             name: resource.key.to_owned(),
-                        }));
+                            structure: None,
+                        });
                     }
                 }
             }
@@ -125,15 +127,14 @@ pub enum Module {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Structure {
-    Resource(Resource),
+    Resource {
+        name: String,
+        #[serde(default)]
+        structure: Option<String>,
+    },
     Recipe {
         name: String,
         #[serde(default)]
         modules: HashMap<String, i32>,
     },
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Resource {
-    pub name: String,
 }

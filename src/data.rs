@@ -358,8 +358,8 @@ impl RecipeRepository {
                     );
                     outputs.extend(self.recipes[name].results.iter().map(|i| i.name.as_str()));
                 }
-                Structure::Resource(resource) => {
-                    outputs.insert(self.resources[&resource.name].key.as_str());
+                Structure::Resource { name, .. } => {
+                    outputs.insert(self.resources[name].key.as_str());
                 }
             }
         }
@@ -400,8 +400,8 @@ impl RecipeRepository {
                     );
                     outputs.extend(self.recipes[name].results.iter().map(|i| i.name.as_str()));
                 }
-                Structure::Resource(resource) => {
-                    inputs.insert(self.resources[&resource.name].key.as_str());
+                Structure::Resource { name, .. } => {
+                    inputs.insert(self.resources[name].key.as_str());
                 }
             }
         }
@@ -430,8 +430,8 @@ impl RecipeRepository {
                     );
                     outputs.extend(self.recipes[name].results.iter().map(|i| i.name.as_str()));
                 }
-                Structure::Resource(resource) => {
-                    outputs.insert(self.resources[&resource.name].key.as_str());
+                Structure::Resource { name, .. } => {
+                    outputs.insert(self.resources[name].key.as_str());
                 }
             }
         }

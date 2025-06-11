@@ -5,7 +5,8 @@
       "structures": [
         {
           "resource": {
-            "name": "copper-ore"
+            "name": "copper-ore",
+            "structure": null
           }
         }
       ]

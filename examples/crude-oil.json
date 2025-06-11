@@ -5,7 +5,8 @@
       "structures": [
         {
           "resource": {
-            "name": "crude-oil"
+            "name": "crude-oil",
+            "structure": null
           }
         }
       ]
