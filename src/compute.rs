@@ -16,10 +16,10 @@ pub fn render(
     imports: &HashMap<String, Vec<(String, usize, Decimal)>>,
     used_imports: &HashSet<String>,
     details: bool,
+    total_energy: Option<Decimal>,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let mut f = String::new();
     writeln!(f, "digraph {{")?;
-    writeln!(f, "{INDENT}newrank=true")?;
     writeln!(f, "{INDENT}0 [label = \"outputs\"]")?;
     writeln!(f, "{INDENT}1 [label = \"inputs\"]")?;
     // Offset for output and input nodes
@@ -35,6 +35,15 @@ pub fn render(
             imports,
             used_imports,
             details,
+            total_energy.is_some(),
+        )?;
+    }
+    if let Some(energy) = total_energy {
+        writeln!(
+            f,
+            "{INDENT}{} [label = \"{} W\"]",
+            offset,
+            crate::round_string(energy)
         )?;
     }
     writeln!(f, "}}")?;
@@ -49,8 +58,10 @@ fn render_module(
     imports: &HashMap<String, Vec<(String, usize, Decimal)>>,
     used_imports: &HashSet<String>,
     details: bool,
+    show_energy: bool,
 ) -> Result<usize, Box<dyn std::error::Error>> {
     let index = offsets[graph.name.as_str()];
+    let mut additional_nodes = 0;
     let g = &graph.graph;
     writeln!(
         f,
@@ -75,6 +86,20 @@ fn render_module(
                 node.weight().to_string(details)
             )?;
         }
+    }
+    if show_energy
+        && g.node_weights()
+            .map(|n| n.structure.is_some() as i32)
+            .sum::<i32>()
+            > 1
+    {
+        writeln!(
+            f,
+            "{indent}{indent}{} [label = \"{} W\"]",
+            g.node_count() + index,
+            crate::round_string(graph.energy)
+        )?;
+        additional_nodes += 1;
     }
     writeln!(f, "{indent}}}")?;
     for (o, (node, required)) in &graph.outputs {
@@ -131,7 +156,7 @@ fn render_module(
             edge.weight()
         )?;
     }
-    Ok(g.node_count())
+    Ok(g.node_count() + additional_nodes)
 }
 
 pub fn total<'a>(graphs: &'a [Graph]) -> HashMap<&'a str, Decimal> {

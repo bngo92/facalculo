@@ -21,6 +21,7 @@ pub struct Graph<'a> {
     pub recipes: &'a RecipeRepository,
     pub imports: HashMap<String, Import>,
     pub outputs: HashMap<String, (NodeIndex, Decimal)>,
+    pub energy: Decimal,
 }
 
 #[derive(Clone)]
@@ -43,6 +44,7 @@ impl<'a> Graph<'a> {
             recipes,
             imports: HashMap::new(),
             outputs: HashMap::new(),
+            energy: Decimal::ZERO,
         }
     }
 
@@ -165,12 +167,15 @@ impl<'a> Graph<'a> {
                     ),
                 ] {
                     let ratio = Decimal::from_f64(*ratio).unwrap();
+                    let energy =
+                        ratio * recipes.assembling_machines[recipe.structure(asm)].energy();
                     let node = graph.graph.add_node(Node {
                         required: Some(ratio),
                         name: recipe.key.to_owned(),
                         structure: Some(recipe.structure(asm)),
-                        energy: ratio * recipes.assembling_machines[recipe.structure(asm)].energy(),
+                        energy,
                     });
+                    graph.energy += energy;
                     if required[output] > 0. {
                         graph.outputs.insert(
                             output.to_owned(),
@@ -315,18 +320,20 @@ impl<'a> Graph<'a> {
         let structure = recipe.rate().structure(asm);
         let structures =
             ratio / (Decimal::ONE + effect.productivity) / (Decimal::ONE + effect.speed);
+        let energy = if structure.is_empty() {
+            Decimal::ZERO
+        } else {
+            structures
+                * self.recipes.assembling_machines[structure].energy()
+                * (Decimal::ONE + effect.consumption)
+        };
         let node = self.graph.add_node(Node {
             required: Some(structures),
             name: recipe.rate().key.to_owned(),
             structure: Some(structure),
-            energy: if structure.is_empty() {
-                Decimal::ZERO
-            } else {
-                structures
-                    * self.recipes.assembling_machines[structure].energy()
-                    * (Decimal::ONE + effect.consumption)
-            },
+            energy,
         });
+        self.energy += energy;
         if let Rate::Resource(_) = recipe {
             self.imports
                 .insert(ingredient.to_owned(), Import::Resource(node, required));
@@ -518,12 +525,12 @@ impl Node {
             self.name.to_string()
         };
         if let (true, Some(structure)) = (details, &self.structure) {
-            format!(
-                "{}\\n{}\\n{}",
-                s,
-                structure,
-                crate::round_string(self.energy)
-            )
+            let energy = if self.energy != Decimal::ZERO {
+                format!("\\n{} W", crate::round_string(self.energy))
+            } else {
+                String::new()
+            };
+            format!("{}\\n{}{}", s, structure, energy)
         } else {
             s
         }

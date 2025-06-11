@@ -67,6 +67,8 @@ enum Commands {
         rate: Option<Decimal>,
         #[arg(short, long)]
         details: bool,
+        #[arg(long)]
+        energy: bool,
     },
 }
 
@@ -150,7 +152,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .cloned()
                 .map(|m| Graph::from_module(m, &required, &defaults, &recipe_rates, args.asm))
                 .collect();
-            let out = compute::render(&graphs, &HashMap::new(), &HashSet::new(), false)?;
+            let out = compute::render(&graphs, &HashMap::new(), &HashSet::new(), false, None)?;
             if args.render {
                 let g = parse(&out)?;
                 exec(
@@ -190,6 +192,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             item: items,
             rate,
             details,
+            energy,
         }) => {
             // Parse arguments
             let mut modules = files
@@ -263,6 +266,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .collect();
             let mut graphs = Vec::new();
             let mut imports: HashMap<String, Vec<(String, usize, Decimal)>> = HashMap::new();
+            let mut total_energy = Decimal::ZERO;
             for module in module_order {
                 let graph = Graph::from_module(
                     modules.remove(&module).unwrap(),
@@ -285,6 +289,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         import_required,
                     ));
                 }
+                total_energy += graph.energy;
                 graphs.push(graph);
             }
             let out = compute::render(
@@ -292,6 +297,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &imports,
                 &outputs.into_iter().map(ToOwned::to_owned).collect(),
                 details,
+                if energy { Some(total_energy) } else { None },
             )?;
             let g = parse(&out)?;
             let format = match args.out.as_deref() {
