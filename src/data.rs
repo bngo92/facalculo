@@ -17,11 +17,10 @@ pub struct Data<'a> {
     recipe: HashMap<&'a str, Recipe>,
     pub fluid: HashMap<&'a str, Value>,
     furnace: HashMap<String, AssemblingMachine>,
-    offshore_pump: HashMap<String, AssemblingMachine>,
     assembling_machine: HashMap<String, AssemblingMachine>,
     lab: HashMap<String, AssemblingMachine>,
     rocket_silo: HashMap<String, AssemblingMachine>,
-    mining_drill: HashMap<String, AssemblingMachine>,
+    mining_drill: HashMap<String, MiningDrill>,
     #[serde(borrow)]
     resource: HashMap<&'a str, Resource>,
     module: HashMap<&'a str, Module>,
@@ -111,6 +110,13 @@ pub struct Effect {
 #[derive(Clone, Debug, Deserialize)]
 pub struct AssemblingMachine {
     name: String,
+    energy_usage: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct MiningDrill {
+    name: String,
+    pub mining_speed: Decimal,
     energy_usage: String,
 }
 
@@ -216,11 +222,11 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
             key: (*key).to_owned(),
             ingredients: Vec::new(),
             results: vec![IngredientRate {
-                rate: resource.minable.mining_time
-                    * match *key {
-                        "crude-oil" => Decimal::TWO,
-                        _ => Decimal::from_str("0.5").unwrap(),
-                    },
+                rate: match *key {
+                    // Pumpjacks have a minimum of 2 fluid per second
+                    "crude-oil" => Decimal::TWO,
+                    _ => resource.minable.mining_time,
+                },
                 name: (*key).to_owned(),
             }],
         };
@@ -234,7 +240,7 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
             key: "water".to_owned(),
             ingredients: Vec::new(),
             results: vec![IngredientRate {
-                rate: Decimal::new(1200, 0),
+                rate: Decimal::ONE,
                 name: String::from("water"),
             }],
         },
@@ -257,12 +263,28 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
         }
     }
     let science_rate = Decimal::from_f64((1. + 2.5) / 60.).unwrap();
+    let mut mining_drills = data.mining_drill.clone();
+    mining_drills.insert(
+        "offshore-pump".to_owned(),
+        MiningDrill {
+            name: "offshore-pump".to_owned(),
+            mining_speed: Decimal::from(1200),
+            energy_usage: "0kW".to_owned(),
+        },
+    );
     let mut assembling_machines = data.assembling_machine.clone();
     assembling_machines.extend(data.lab.clone());
     assembling_machines.extend(data.rocket_silo.clone());
     assembling_machines.extend(data.furnace.clone());
-    assembling_machines.extend(data.mining_drill.clone());
-    assembling_machines.extend(data.offshore_pump.clone());
+    assembling_machines.extend(mining_drills.iter().map(|(k, m)| {
+        (
+            k.clone(),
+            AssemblingMachine {
+                name: m.name.clone(),
+                energy_usage: m.energy_usage.clone(),
+            },
+        )
+    }));
     RecipeRepository {
         recipes: recipe_rates,
         resources,
@@ -297,6 +319,7 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
             }],
         },
         assembling_machines,
+        mining_drills,
     }
 }
 
@@ -314,6 +337,7 @@ pub struct RecipeRepository {
     science: String,
     pub science_recipe: RecipeRate,
     pub assembling_machines: HashMap<String, AssemblingMachine>,
+    pub mining_drills: HashMap<String, MiningDrill>,
 }
 
 impl RecipeRepository {

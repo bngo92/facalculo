@@ -89,12 +89,31 @@ impl<'a> Graph<'a> {
                                 pollution: Decimal::ZERO,
                             };
                             for result in &recipe.rate().results {
-                                outputs.insert(result.name.as_str(), (recipe.clone(), effect));
+                                outputs.insert(
+                                    result.name.as_str(),
+                                    (
+                                        recipe.clone(),
+                                        recipe.rate().structure(asm).to_owned(),
+                                        Decimal::ONE,
+                                        effect,
+                                    ),
+                                );
                             }
                         }
-                        Structure::Resource { name, .. } => {
+                        Structure::Resource { name, structure } => {
                             let recipe = recipes.get(name).unwrap();
-                            outputs.insert(name.as_str(), (recipe.clone(), Effect::default()));
+                            let structure = structure
+                                .clone()
+                                .unwrap_or_else(|| recipe.rate().structure(asm).to_owned());
+                            outputs.insert(
+                                name.as_str(),
+                                (
+                                    recipe.clone(),
+                                    structure.clone(),
+                                    recipes.mining_drills[structure.as_str()].mining_speed,
+                                    Effect::default(),
+                                ),
+                            );
                         }
                     }
                 }
@@ -119,7 +138,6 @@ impl<'a> Graph<'a> {
                         &output_set,
                         &exports,
                         true,
-                        asm,
                     );
                 }
             }
@@ -169,7 +187,7 @@ impl<'a> Graph<'a> {
                     let node = graph.graph.add_node(Node {
                         required: Some(ratio),
                         name: recipe.key.to_owned(),
-                        structure: Some(recipe.structure(asm)),
+                        structure: Some(recipe.structure(asm).to_owned()),
                         energy,
                     });
                     graph.energy += energy;
@@ -230,13 +248,20 @@ impl<'a> Graph<'a> {
                     pollution: Decimal::ZERO,
                 };
                 graph.build_module_node(
-                    &HashMap::from([("science", (Rate::Recipe(&recipes.science_recipe), effect))]),
+                    &HashMap::from([(
+                        "science",
+                        (
+                            Rate::Recipe(&recipes.science_recipe),
+                            recipes.science_recipe.structure(asm).to_owned(),
+                            Decimal::ONE,
+                            effect,
+                        ),
+                    )]),
                     "science",
                     required,
                     &HashSet::new(),
                     &["science"],
                     false,
-                    asm,
                 );
             }
             Module::RocketSilo { modules } => {
@@ -275,11 +300,26 @@ impl<'a> Graph<'a> {
                         name: "rocket".to_owned(),
                     }],
                 };
-                let mut outputs =
-                    HashMap::from([("rocket", (Rate::Recipe(&rocket_recipe), Effect::default()))]);
+                let mut outputs = HashMap::from([(
+                    "rocket",
+                    (
+                        Rate::Recipe(&rocket_recipe),
+                        rocket_recipe.structure(asm).to_owned(),
+                        Decimal::ONE,
+                        Effect::default(),
+                    ),
+                )]);
                 let recipe = recipes.get("rocket-part").unwrap();
                 for result in &recipe.rate().results {
-                    outputs.insert(result.name.as_str(), (recipe.clone(), effect));
+                    outputs.insert(
+                        result.name.as_str(),
+                        (
+                            recipe.clone(),
+                            recipe.rate().structure(asm).to_owned(),
+                            Decimal::ONE,
+                            effect,
+                        ),
+                    );
                 }
                 graph.build_module_node(
                     &outputs,
@@ -288,7 +328,6 @@ impl<'a> Graph<'a> {
                     &HashSet::from(["rocket-part"]),
                     &["rocket"],
                     false,
-                    asm,
                 );
             }
         }
@@ -297,15 +336,14 @@ impl<'a> Graph<'a> {
 
     fn build_module_node(
         &mut self,
-        outputs: &HashMap<&str, (Rate, Effect)>,
+        outputs: &HashMap<&str, (Rate, String, Decimal, Effect)>,
         ingredient: &str,
         required: Decimal,
         output_set: &HashSet<&str>,
         exports: &[&str],
         import_nodes: bool,
-        asm: i64,
     ) -> NodeIndex {
-        let (recipe, effect) = &outputs[ingredient];
+        let (recipe, structure, speed, effect) = &outputs[ingredient];
         let ratio = required
             / recipe
                 .rate()
@@ -314,9 +352,8 @@ impl<'a> Graph<'a> {
                 .find(|i| i.name == ingredient)
                 .unwrap()
                 .rate;
-        let structure = recipe.rate().structure(asm);
         let structures =
-            ratio / (Decimal::ONE + effect.productivity) / (Decimal::ONE + effect.speed);
+            ratio / speed / (Decimal::ONE + effect.productivity) / (Decimal::ONE + effect.speed);
         let energy = if structure.is_empty() {
             Decimal::ZERO
         } else {
@@ -327,7 +364,7 @@ impl<'a> Graph<'a> {
         let node = self.graph.add_node(Node {
             required: Some(structures),
             name: recipe.rate().key.to_owned(),
-            structure: Some(structure),
+            structure: Some(structure.clone()),
             energy,
         });
         self.energy += energy;
@@ -350,7 +387,6 @@ impl<'a> Graph<'a> {
                     output_set,
                     exports,
                     import_nodes,
-                    asm,
                 );
                 self.graph.add_edge(node, n, edge);
             } else if import_nodes {
@@ -502,7 +538,7 @@ impl<'a> Graph<'a> {
 pub struct Node {
     pub required: Option<Decimal>,
     pub name: String,
-    pub structure: Option<&'static str>,
+    pub structure: Option<String>,
     pub energy: Decimal,
 }
 
