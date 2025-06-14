@@ -1,11 +1,10 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt::Display,
-    iter,
     str::FromStr,
 };
 
-use rust_decimal::{prelude::FromPrimitive, Decimal};
+use rust_decimal::Decimal;
 use serde_derive::Deserialize;
 use serde_json::Value;
 
@@ -262,7 +261,6 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
                 .push(key.clone());
         }
     }
-    let science_rate = Decimal::from_f64((1. + 2.5) / 60.).unwrap();
     let mut mining_drills = data.mining_drill.clone();
     mining_drills.insert(
         "offshore-pump".to_owned(),
@@ -294,30 +292,6 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
             .iter()
             .map(|(&name, module)| (name.to_owned(), module.clone()))
             .collect(),
-        science: "science".to_owned(),
-        science_recipe: RecipeRate {
-            category: None,
-            key: "science".to_owned(),
-            ingredients: [
-                "automation-science-pack",
-                "logistic-science-pack",
-                "military-science-pack",
-                "chemical-science-pack",
-                "production-science-pack",
-                "utility-science-pack",
-                "space-science-pack",
-            ]
-            .into_iter()
-            .map(|i| IngredientRate {
-                rate: science_rate,
-                name: i.to_owned(),
-            })
-            .collect(),
-            results: vec![IngredientRate {
-                rate: science_rate,
-                name: "science".to_owned(),
-            }],
-        },
         assembling_machines,
         mining_drills,
     }
@@ -334,23 +308,17 @@ pub struct RecipeRepository {
     pub resources: HashMap<String, RecipeRate>,
     pub recipe_outputs: HashMap<String, Vec<String>>,
     pub modules: HashMap<String, Module>,
-    science: String,
-    pub science_recipe: RecipeRate,
     pub assembling_machines: HashMap<String, AssemblingMachine>,
     pub mining_drills: HashMap<String, MiningDrill>,
 }
 
 impl RecipeRepository {
     pub fn recipes(&self) -> impl Iterator<Item = (&String, &RecipeRate)> {
-        self.recipes
-            .iter()
-            .chain(iter::once((&self.science, &self.science_recipe)))
+        self.recipes.iter()
     }
 
     pub fn get(&self, key: &str) -> Option<Rate> {
-        if key == "science" {
-            Some(Rate::Recipe(&self.science_recipe))
-        } else if let Some(recipe) = self.recipes.get(key) {
+        if let Some(recipe) = self.recipes.get(key) {
             Some(Rate::Recipe(recipe))
         } else {
             self.resources.get(key).map(Rate::Resource)

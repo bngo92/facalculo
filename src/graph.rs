@@ -247,12 +247,36 @@ impl<'a> Graph<'a> {
                         .sum(),
                     pollution: Decimal::ZERO,
                 };
+                let science_rate = Decimal::from_f64((1. + 2.5) / 60.).unwrap();
+                let science_recipe = RecipeRate {
+                    category: None,
+                    key: "science".to_owned(),
+                    ingredients: [
+                        "automation-science-pack",
+                        "logistic-science-pack",
+                        "military-science-pack",
+                        "chemical-science-pack",
+                        "production-science-pack",
+                        "utility-science-pack",
+                        "space-science-pack",
+                    ]
+                    .into_iter()
+                    .map(|i| IngredientRate {
+                        rate: science_rate,
+                        name: i.to_owned(),
+                    })
+                    .collect(),
+                    results: vec![IngredientRate {
+                        rate: science_rate,
+                        name: "science".to_owned(),
+                    }],
+                };
                 graph.build_module_node(
                     &HashMap::from([(
                         "science",
                         (
-                            Rate::Recipe(&recipes.science_recipe),
-                            recipes.science_recipe.structure(asm).to_owned(),
+                            Rate::Recipe(&science_recipe),
+                            science_recipe.structure(asm).to_owned(),
                             Decimal::ONE,
                             effect,
                         ),
