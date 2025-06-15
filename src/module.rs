@@ -2,6 +2,7 @@ use crate::{
     data::{RecipeRate, RecipeRepository, RepositoryOption},
     Rate,
 };
+use rust_decimal::Decimal;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -117,6 +118,10 @@ pub enum Module {
     Science {
         #[serde(default)]
         modules: HashMap<String, i32>,
+        #[serde(default)]
+        research_speed: Option<Decimal>,
+        #[serde(default)]
+        research_time: Option<Decimal>,
     },
     RocketSilo {
         #[serde(default)]

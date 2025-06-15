@@ -365,6 +365,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             name: "science".to_owned(),
             module: Module::Science {
                 modules: HashMap::new(),
+                research_speed: None,
+                research_time: None,
             },
         })?,
     )?;

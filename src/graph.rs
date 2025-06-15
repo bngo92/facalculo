@@ -224,7 +224,11 @@ impl<'a> Graph<'a> {
                     last = Some((node, &recipe.results[0].name));
                 }
             }
-            Module::Science { modules } => {
+            Module::Science {
+                modules,
+                research_speed,
+                research_time,
+            } => {
                 let required = required
                     .get("science")
                     .copied()
@@ -247,7 +251,9 @@ impl<'a> Graph<'a> {
                         .sum(),
                     pollution: Decimal::ZERO,
                 };
-                let science_rate = Decimal::from_f64((1. + 2.5) / 60.).unwrap();
+                let science_rate = (Decimal::ONE
+                    + research_speed.unwrap_or(Decimal::from_f64(2.5).unwrap()))
+                    / research_time.unwrap_or(Decimal::from(60));
                 let science_recipe = RecipeRate {
                     category: None,
                     key: "science".to_owned(),
