@@ -1,4 +1,4 @@
-use data::{Rate, RecipeRepository};
+use data::{Rate, RecipeRate, RecipeRepository};
 use module::{ModuleBuilder, NamedModule};
 use rust_decimal::Decimal;
 use std::collections::HashSet;
@@ -23,7 +23,10 @@ pub fn generate(
     Ok(module.build())
 }
 
-pub fn get_recipe<'a>(recipes: &'a RecipeRepository, name: &str) -> Result<Rate<'a>, String> {
+pub fn get_recipe<'a>(
+    recipes: &'a RecipeRepository,
+    name: &str,
+) -> Result<Rate<&'a RecipeRate>, String> {
     if let Some(recipe) = recipes.get(name) {
         Ok(recipe)
     } else {

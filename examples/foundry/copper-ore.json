@@ -1,0 +1,15 @@
+{
+  "name": "copper-ore",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "resource": {
+            "name": "copper-ore",
+            "structure": "big-mining-drill"
+          }
+        }
+      ]
+    }
+  }
+}

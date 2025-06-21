@@ -1,0 +1,21 @@
+{
+  "name": "automation-science-pack",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "automation-science-pack",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "iron-gear-wheel",
+            "modules": {}
+          }
+        }
+      ]
+    }
+  }
+}

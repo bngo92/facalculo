@@ -1,0 +1,15 @@
+{
+  "name": "coal",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "resource": {
+            "name": "coal",
+            "structure": "big-mining-drill"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "stone",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "resource": {
+            "name": "stone",
+            "structure": "big-mining-drill"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     fmt::Display,
     str::FromStr,
@@ -117,6 +118,7 @@ pub struct MiningDrill {
     name: String,
     pub mining_speed: Decimal,
     energy_usage: String,
+    pub resource_drain_rate_percent: Option<Decimal>,
 }
 
 impl AssemblingMachine {
@@ -216,32 +218,34 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
     let mut resources = HashMap::new();
     // Add mining recipes
     for (key, resource) in &data.resource {
+        let results = vec![IngredientRate {
+            rate: match *key {
+                // Pumpjacks have a minimum of 2 fluid per second
+                "crude-oil" => Decimal::TWO,
+                _ => resource.minable.mining_time,
+            },
+            name: (*key).to_owned(),
+        }];
         let rate = RecipeRate {
             category: None,
             key: (*key).to_owned(),
-            ingredients: Vec::new(),
-            results: vec![IngredientRate {
-                rate: match *key {
-                    // Pumpjacks have a minimum of 2 fluid per second
-                    "crude-oil" => Decimal::TWO,
-                    _ => resource.minable.mining_time,
-                },
-                name: (*key).to_owned(),
-            }],
+            ingredients: results.clone(),
+            results,
         };
         resources.insert((*key).to_owned(), rate);
     }
     // Add water pumping
+    let water = vec![IngredientRate {
+        rate: Decimal::ONE,
+        name: String::from("water"),
+    }];
     resources.insert(
         "water".to_owned(),
         RecipeRate {
             category: None,
             key: "water".to_owned(),
-            ingredients: Vec::new(),
-            results: vec![IngredientRate {
-                rate: Decimal::ONE,
-                name: String::from("water"),
-            }],
+            ingredients: water.clone(),
+            results: water,
         },
     );
     let mut recipe_outputs: HashMap<String, Vec<String>> = HashMap::new();
@@ -268,6 +272,7 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
             name: "offshore-pump".to_owned(),
             mining_speed: Decimal::from(1200),
             energy_usage: "0kW".to_owned(),
+            resource_drain_rate_percent: None,
         },
     );
     let mut assembling_machines = data.assembling_machine.clone();
@@ -317,7 +322,7 @@ impl RecipeRepository {
         self.recipes.iter()
     }
 
-    pub fn get(&self, key: &str) -> Option<Rate> {
+    pub fn get(&self, key: &str) -> Option<Rate<&RecipeRate>> {
         if let Some(recipe) = self.recipes.get(key) {
             Some(Rate::Recipe(recipe))
         } else {
@@ -325,7 +330,7 @@ impl RecipeRepository {
         }
     }
 
-    pub fn get_options(&self, key: &str) -> RepositoryOption<'_, Rate> {
+    pub fn get_options(&self, key: &str) -> RepositoryOption<'_, Rate<&RecipeRate>> {
         match self.recipe_outputs.get(key) {
             None => RepositoryOption::None,
             Some(recipes) if recipes.len() > 1 => RepositoryOption::Multiple(recipes),
@@ -431,17 +436,26 @@ impl RecipeRepository {
     }
 }
 
-#[derive(Clone)]
-pub enum Rate<'a> {
-    Resource(&'a RecipeRate),
-    Recipe(&'a RecipeRate),
+#[derive(Clone, Copy)]
+pub enum Rate<T> {
+    Resource(T),
+    Recipe(T),
 }
 
-impl<'a> Rate<'a> {
-    pub fn rate(&self) -> &'a RecipeRate {
+impl<T> Rate<T> {
+    pub fn rate(&self) -> &T {
         match self {
             Rate::Resource(rate) => rate,
             Rate::Recipe(rate) => rate,
+        }
+    }
+}
+
+impl<'a, T: Clone> Rate<&'a T> {
+    pub fn to_cow(self) -> Rate<Cow<'a, T>> {
+        match self {
+            Rate::Resource(rate) => Rate::Resource(Cow::Borrowed(rate)),
+            Rate::Recipe(rate) => Rate::Recipe(Cow::Borrowed(rate)),
         }
     }
 }

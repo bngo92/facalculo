@@ -9,6 +9,7 @@ use rust_decimal::{
     Decimal,
 };
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet, VecDeque},
     fmt::Display,
 };
@@ -92,7 +93,7 @@ impl<'a> Graph<'a> {
                                 outputs.insert(
                                     result.name.as_str(),
                                     (
-                                        recipe.clone(),
+                                        recipe.to_cow(),
                                         recipe.rate().structure(asm).to_owned(),
                                         Decimal::ONE,
                                         effect,
@@ -101,16 +102,22 @@ impl<'a> Graph<'a> {
                             }
                         }
                         Structure::Resource { name, structure } => {
-                            let recipe = recipes.get(name).unwrap();
+                            let mut recipe = (*recipes.get(name).unwrap().rate()).clone();
                             let structure = structure
                                 .clone()
-                                .unwrap_or_else(|| recipe.rate().structure(asm).to_owned());
+                                .unwrap_or_else(|| recipe.structure(asm).to_owned());
+                            let mining_drill = &recipes.mining_drills[structure.as_str()];
+                            if let Some(drain) = mining_drill.resource_drain_rate_percent {
+                                for ingredient in &mut recipe.ingredients {
+                                    ingredient.rate *= drain / Decimal::ONE_HUNDRED;
+                                }
+                            }
                             outputs.insert(
                                 name.as_str(),
                                 (
-                                    recipe.clone(),
+                                    Rate::Resource(Cow::Owned(recipe)),
                                     structure.clone(),
-                                    recipes.mining_drills[structure.as_str()].mining_speed,
+                                    mining_drill.mining_speed,
                                     Effect::default(),
                                 ),
                             );
@@ -281,7 +288,7 @@ impl<'a> Graph<'a> {
                     &HashMap::from([(
                         "science",
                         (
-                            Rate::Recipe(&science_recipe),
+                            Rate::Recipe(Cow::Borrowed(&science_recipe)),
                             science_recipe.structure(asm).to_owned(),
                             Decimal::ONE,
                             effect,
@@ -333,7 +340,7 @@ impl<'a> Graph<'a> {
                 let mut outputs = HashMap::from([(
                     "rocket",
                     (
-                        Rate::Recipe(&rocket_recipe),
+                        Rate::Recipe(Cow::Borrowed(&rocket_recipe)),
                         rocket_recipe.structure(asm).to_owned(),
                         Decimal::ONE,
                         Effect::default(),
@@ -344,7 +351,7 @@ impl<'a> Graph<'a> {
                     outputs.insert(
                         result.name.as_str(),
                         (
-                            recipe.clone(),
+                            recipe.to_cow(),
                             recipe.rate().structure(asm).to_owned(),
                             Decimal::ONE,
                             effect,
@@ -366,7 +373,7 @@ impl<'a> Graph<'a> {
 
     fn build_module_node(
         &mut self,
-        outputs: &HashMap<&str, (Rate, String, Decimal, Effect)>,
+        outputs: &HashMap<&str, (Rate<Cow<'_, RecipeRate>>, String, Decimal, Effect)>,
         ingredient: &str,
         required: Decimal,
         output_set: &HashSet<&str>,
@@ -393,20 +400,23 @@ impl<'a> Graph<'a> {
         };
         let node = self.graph.add_node(Node {
             required: Some(structures),
-            name: recipe.rate().key.to_owned(),
+            name: recipe.rate().key.clone(),
             structure: Some(structure.clone()),
             energy,
         });
         self.energy += energy;
-        if let Rate::Resource(_) = recipe {
-            self.imports
-                .insert(ingredient.to_owned(), Import::Resource(node, required));
-        }
         for result in &recipe.rate().results {
             if exports.contains(&result.name.as_str()) {
                 self.outputs
                     .insert(result.name.to_owned(), (node, required));
             }
+        }
+        if let Rate::Resource(recipe) = recipe {
+            self.imports.insert(
+                ingredient.to_owned(),
+                Import::Resource(node, ratio * recipe.ingredients[0].rate),
+            );
+            return node;
         }
         for edge in self.get_ingredients(recipe.rate(), ratio, effect.productivity) {
             if output_set.contains(edge.item.as_str()) {

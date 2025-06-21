@@ -1,0 +1,48 @@
+{
+  "name": "production-science-pack",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "production-science-pack",
+            "modules": {
+              "productivity-module-3": 3,
+              "speed-module-3": 1
+            }
+          }
+        },
+        {
+          "recipe": {
+            "name": "electric-furnace",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "stone-brick",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "productivity-module",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "rail",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "iron-stick",
+            "modules": {}
+          }
+        }
+      ]
+    }
+  }
+}

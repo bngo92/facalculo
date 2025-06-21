@@ -1,0 +1,60 @@
+{
+  "name": "utility-science-pack",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "utility-science-pack",
+            "modules": {
+              "productivity-module-3": 3,
+              "speed-module-3": 1
+            }
+          }
+        },
+        {
+          "recipe": {
+            "name": "flying-robot-frame",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "electric-engine-unit",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "engine-unit",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "iron-gear-wheel",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "pipe",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "lubricant",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "battery",
+            "modules": {}
+          }
+        }
+      ]
+    }
+  }
+}

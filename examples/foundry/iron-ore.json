@@ -1,0 +1,15 @@
+{
+  "name": "iron-ore",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "resource": {
+            "name": "iron-ore",
+            "structure": "big-mining-drill"
+          }
+        }
+      ]
+    }
+  }
+}

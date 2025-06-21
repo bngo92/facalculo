@@ -1,0 +1,21 @@
+{
+  "name": "electronic-circuit",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "electronic-circuit",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "copper-cable",
+            "modules": {}
+          }
+        }
+      ]
+    }
+  }
+}

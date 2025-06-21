@@ -1,0 +1,15 @@
+{
+  "name": "copper-plate",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "copper-plate",
+            "modules": {}
+          }
+        }
+      ]
+    }
+  }
+}

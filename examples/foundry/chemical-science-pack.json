@@ -1,0 +1,33 @@
+{
+  "name": "chemical-science-pack",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "chemical-science-pack",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "engine-unit",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "iron-gear-wheel",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "pipe",
+            "modules": {}
+          }
+        }
+      ]
+    }
+  }
+}
