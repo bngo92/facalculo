@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let data: Data = serde_json::from_slice(b)?;
     let recipe_rates = data::calculate_rates(&data, 2);
     fs::write(
-        "examples/copper-ore.json",
+        "examples/base/copper-ore.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "copper-ore",
             true,
@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?)?,
     )?;
     fs::write(
-        "examples/copper-plate.json",
+        "examples/base/copper-plate.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "copper-plate",
             true,
@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?)?,
     )?;
     fs::write(
-        "examples/iron-ore.json",
+        "examples/base/iron-ore.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "iron-ore",
             true,
@@ -46,7 +46,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?)?,
     )?;
     fs::write(
-        "examples/iron-plate.json",
+        "examples/base/iron-plate.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "iron-plate",
             true,
@@ -59,7 +59,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?)?,
     )?;
     fs::write(
-        "examples/automation-science-pack.json",
+        "examples/base/automation-science-pack.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "automation-science-pack",
             true,
@@ -75,7 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?)?,
     )?;
     fs::write(
-        "examples/electronic-circuit.json",
+        "examples/base/electronic-circuit.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "electronic-circuit",
             true,
@@ -91,7 +91,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?)?,
     )?;
     fs::write(
-        "examples/logistic-science-pack.json",
+        "examples/base/logistic-science-pack.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "logistic-science-pack",
             true,
@@ -107,7 +107,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?)?,
     )?;
     fs::write(
-        "examples/steel-plate.json",
+        "examples/base/steel-plate.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "steel-plate",
             true,
@@ -120,7 +120,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?)?,
     )?;
     fs::write(
-        "examples/coal.json",
+        "examples/base/coal.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "coal",
             true,
@@ -130,7 +130,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?)?,
     )?;
     fs::write(
-        "examples/stone.json",
+        "examples/base/stone.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "stone",
             true,
@@ -140,7 +140,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?)?,
     )?;
     fs::write(
-        "examples/military-science-pack.json",
+        "examples/base/military-science-pack.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "military-science-pack",
             true,
@@ -222,7 +222,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?)?,
     )?;
     fs::write(
-        "examples/chemical-science-pack.json",
+        "examples/base/chemical-science-pack.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "chemical-science-pack",
             true,
@@ -245,7 +245,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?)?,
     )?;
     fs::write(
-        "examples/production-science-pack.json",
+        "examples/base/production-science-pack.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "production-science-pack",
             true,
@@ -310,7 +310,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?)?,
     )?;
     fs::write(
-        "examples/utility-science-pack.json",
+        "examples/base/utility-science-pack.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "utility-science-pack",
             true,
