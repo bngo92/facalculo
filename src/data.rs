@@ -111,6 +111,14 @@ pub struct Effect {
 pub struct AssemblingMachine {
     name: String,
     energy_usage: String,
+    pub crafting_speed: Option<Decimal>,
+    pub effect_receiver: Option<EffectReceiver>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct EffectReceiver {
+    #[serde(default)]
+    pub base_effect: HashMap<String, Decimal>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -144,7 +152,7 @@ impl AssemblingMachine {
     }
 }
 
-pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
+pub fn calculate_rates(data: &Data) -> RecipeRepository {
     let recipe_rates: HashMap<_, _> = data
         .recipe
         .iter()
@@ -164,29 +172,13 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
             ) {
                 return None;
             }
-            let speed = match r.category {
-                None
-                | Some(Category::AdvancedCrafting)
-                | Some(Category::Crafting)
-                | Some(Category::CraftingWithFluid)
-                | Some(Category::Electronics)
-                | Some(Category::ElectronicsWithFluid)
-                | Some(Category::Pressing) => match asm {
-                    1 => Decimal::from_str("0.5").unwrap(),
-                    2 => Decimal::from_str("0.75").unwrap(),
-                    3 => Decimal::from_str("1.25").unwrap(),
-                    _ => unimplemented!(),
-                },
-                Some(Category::Smelting) => Decimal::new(2, 0),
-                _ => Decimal::ONE,
-            };
             let ingredients: Vec<_> = ingredients
                 .iter()
                 .cloned()
                 .filter_map(|i| {
                     let i: Ingredient = serde_json::from_value(i).ok()?;
                     Some(IngredientRate {
-                        rate: i.amount / energy_required * speed,
+                        rate: i.amount / energy_required,
                         name: i.name,
                     })
                 })
@@ -204,7 +196,7 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
                             None
                         } else {
                             Some(IngredientRate {
-                                rate: i.amount / energy_required * speed,
+                                rate: i.amount / energy_required,
                                 name: i.name,
                             })
                         }
@@ -285,6 +277,8 @@ pub fn calculate_rates(data: &Data, asm: i64) -> RecipeRepository {
             AssemblingMachine {
                 name: m.name.clone(),
                 energy_usage: m.energy_usage.clone(),
+                crafting_speed: Some(m.mining_speed),
+                effect_receiver: None,
             },
         )
     }));
@@ -499,6 +493,7 @@ impl RecipeRate {
                 Some(Category::Crushing) => "crusher",
                 Some(Category::Electronics) => asm,
                 Some(Category::ElectronicsWithFluid) => asm,
+                Some(Category::Metallurgy) => "foundry",
                 Some(Category::OilProcessing) => "oil-refinery",
                 Some(Category::OrganicOrAssembling) => asm,
                 Some(Category::OrganicOrChemistry) => "chemical-plant",

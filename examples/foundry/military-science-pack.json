@@ -38,6 +38,24 @@
             "name": "stone-brick",
             "modules": {}
           }
+        },
+        {
+          "recipe": {
+            "name": "casting-steel",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "casting-iron",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "casting-copper",
+            "modules": {}
+          }
         }
       ]
     }

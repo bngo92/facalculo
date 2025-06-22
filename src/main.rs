@@ -76,7 +76,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let b = include_bytes!("data-raw-dump.json");
     let data: Data = serde_json::from_slice(b)?;
-    let recipe_rates = data::calculate_rates(&data, args.asm);
+    let recipe_rates = data::calculate_rates(&data);
     let _belt = args.belt.map(|b| b as i64);
     match args.command {
         None => (),
@@ -324,12 +324,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 mod tests {
     use super::*;
     use facalculo::module::ModuleBuilder;
+    use rust_decimal::prelude::FromPrimitive;
 
     #[test]
     fn advanced_circuit() {
         let b = include_bytes!("data-raw-dump.json");
         let data: Data = serde_json::from_slice(b).unwrap();
-        let recipe_rates = data::calculate_rates(&data, 1);
+        let recipe_rates = data::calculate_rates(&data);
         let recipes = get_recipes();
         let mut builder = ModuleBuilder::new(String::new(), &recipe_rates, &[], &recipes);
         builder.add("advanced-circuit", true);
@@ -337,7 +338,8 @@ mod tests {
             builder.build(),
             &HashMap::from_iter([(
                 "advanced-circuit".to_owned(),
-                recipe_rates.get("advanced-circuit").unwrap().rate().results[0].rate,
+                recipe_rates.get("advanced-circuit").unwrap().rate().results[0].rate
+                    * Decimal::from_f64(0.5).unwrap(),
             )]),
             &HashMap::new(),
             &recipe_rates,
@@ -350,7 +352,7 @@ mod tests {
         assert_eq!(
             nodes,
             vec![
-                "1 advanced-circuit",
+                "1.000 advanced-circuit",
                 "0.185 basic-oil-processing",
                 "0.167 coal",
                 "0.167 copper-cable",
@@ -381,9 +383,9 @@ mod tests {
         assert_eq!(
             edges,
             vec![
-                "1 advanced-circuit -> 0.333 cc -> 0.167 copper-cable",
-                "1 advanced-circuit -> 0.167 ec -> 0.167 electronic-circuit",
-                "1 advanced-circuit -> 0.167 pb -> 0.083 plastic-bar",
+                "1.000 advanced-circuit -> 0.333 cc -> 0.167 copper-cable",
+                "1.000 advanced-circuit -> 0.167 ec -> 0.167 electronic-circuit",
+                "1.000 advanced-circuit -> 0.167 pb -> 0.083 plastic-bar",
                 "0.185 basic-oil-processing -> 3.704 co -> 1.852 crude-oil",
                 "0.167 copper-cable -> 0.167 cp -> 0.267 copper-plate",
                 "0.250 copper-cable -> 0.250 cp -> 0.400 copper-plate",
@@ -402,7 +404,7 @@ mod tests {
     fn group_all_advanced_circuit() {
         let b = include_bytes!("data-raw-dump.json");
         let data: Data = serde_json::from_slice(b).unwrap();
-        let recipe_rates = data::calculate_rates(&data, 1);
+        let recipe_rates = data::calculate_rates(&data);
         let recipes = get_recipes();
         let mut builder = ModuleBuilder::new(String::new(), &recipe_rates, &[], &recipes);
         builder.add("advanced-circuit", true);
@@ -410,7 +412,8 @@ mod tests {
             builder.build(),
             &HashMap::from_iter([(
                 "advanced-circuit".to_owned(),
-                recipe_rates.get("advanced-circuit").unwrap().rate().results[0].rate,
+                recipe_rates.get("advanced-circuit").unwrap().rate().results[0].rate
+                    * Decimal::from_f64(0.5).unwrap(),
             )]),
             &HashMap::new(),
             &recipe_rates,
@@ -424,7 +427,7 @@ mod tests {
         assert_eq!(
             nodes,
             vec![
-                "1 advanced-circuit",
+                "1.000 advanced-circuit",
                 "0.185 basic-oil-processing",
                 "0.167 coal",
                 "0.417 copper-cable",
@@ -452,9 +455,9 @@ mod tests {
         assert_eq!(
             edges,
             vec![
-                "1 advanced-circuit -> 0.333 cc -> 0.417 copper-cable",
-                "1 advanced-circuit -> 0.167 ec -> 0.167 electronic-circuit",
-                "1 advanced-circuit -> 0.167 pb -> 0.083 plastic-bar",
+                "1.000 advanced-circuit -> 0.333 cc -> 0.417 copper-cable",
+                "1.000 advanced-circuit -> 0.167 ec -> 0.167 electronic-circuit",
+                "1.000 advanced-circuit -> 0.167 pb -> 0.083 plastic-bar",
                 "0.185 basic-oil-processing -> 3.704 co -> 1.852 crude-oil",
                 "0.417 copper-cable -> 0.417 cp -> 0.667 copper-plate",
                 "0.667 copper-plate -> 0.417 co -> 0.833 copper-ore",
@@ -471,7 +474,7 @@ mod tests {
     fn group_advanced_circuit() {
         let b = include_bytes!("data-raw-dump.json");
         let data: Data = serde_json::from_slice(b).unwrap();
-        let recipe_rates = data::calculate_rates(&data, 1);
+        let recipe_rates = data::calculate_rates(&data);
         let recipes = get_recipes();
         let mut builder =
             ModuleBuilder::new("advanced-circuit".to_owned(), &recipe_rates, &[], &recipes);
@@ -485,7 +488,8 @@ mod tests {
                     .get("advanced-circuit")
                     .unwrap()
                     .results[0]
-                    .rate,
+                    .rate
+                    * Decimal::from_f64(0.5).unwrap(),
             )]),
             &HashMap::new(),
             &recipe_rates,
@@ -499,7 +503,7 @@ mod tests {
         assert_eq!(
             nodes,
             vec![
-                "1 advanced-circuit",
+                "1.000 advanced-circuit",
                 "0.185 basic-oil-processing",
                 "0.167 coal",
                 "0.167 copper-cable",
@@ -528,9 +532,9 @@ mod tests {
         assert_eq!(
             edges,
             vec![
-                "1 advanced-circuit -> 0.333 cc -> 0.167 copper-cable",
-                "1 advanced-circuit -> 0.167 ec -> 0.167 electronic-circuit",
-                "1 advanced-circuit -> 0.167 pb -> 0.083 plastic-bar",
+                "1.000 advanced-circuit -> 0.333 cc -> 0.167 copper-cable",
+                "1.000 advanced-circuit -> 0.167 ec -> 0.167 electronic-circuit",
+                "1.000 advanced-circuit -> 0.167 pb -> 0.083 plastic-bar",
                 "0.185 basic-oil-processing -> 3.704 co -> 1.852 crude-oil",
                 "0.167 copper-cable -> 0.167 cp -> 0.667 copper-plate",
                 "0.250 copper-cable -> 0.250 cp -> 0.667 copper-plate",

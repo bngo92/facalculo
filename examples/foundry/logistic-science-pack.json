@@ -17,7 +17,7 @@
         },
         {
           "recipe": {
-            "name": "iron-gear-wheel",
+            "name": "casting-iron-gear-wheel",
             "modules": {}
           }
         },
@@ -29,7 +29,25 @@
         },
         {
           "recipe": {
-            "name": "iron-gear-wheel",
+            "name": "casting-iron-gear-wheel",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "electronic-circuit",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "casting-iron",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "casting-copper-cable",
             "modules": {}
           }
         }

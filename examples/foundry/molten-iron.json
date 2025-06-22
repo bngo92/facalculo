@@ -1,11 +1,11 @@
 {
-  "name": "iron-plate",
+  "name": "molten-iron",
   "module": {
     "user": {
       "structures": [
         {
           "recipe": {
-            "name": "iron-plate",
+            "name": "molten-iron",
             "modules": {}
           }
         }

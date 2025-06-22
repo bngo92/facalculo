@@ -1,23 +1,29 @@
 {
-  "name": "automation-science-pack",
+  "name": "advanced-circuit",
   "module": {
     "user": {
       "structures": [
         {
           "recipe": {
-            "name": "automation-science-pack",
+            "name": "advanced-circuit",
             "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "casting-iron-gear-wheel",
+            "name": "electronic-circuit",
             "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "casting-copper",
+            "name": "casting-iron",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "casting-copper-cable",
             "modules": {}
           }
         }

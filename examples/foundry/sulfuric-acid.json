@@ -1,17 +1,17 @@
 {
-  "name": "electronic-circuit",
+  "name": "sulfuric-acid",
   "module": {
     "user": {
       "structures": [
         {
           "recipe": {
-            "name": "electronic-circuit",
+            "name": "sulfuric-acid",
             "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "copper-cable",
+            "name": "casting-iron",
             "modules": {}
           }
         }

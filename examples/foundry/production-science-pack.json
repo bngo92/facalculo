@@ -38,7 +38,31 @@
         },
         {
           "recipe": {
-            "name": "iron-stick",
+            "name": "casting-steel",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "casting-iron-stick",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "electronic-circuit",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "casting-iron",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "casting-copper-cable",
             "modules": {}
           }
         }

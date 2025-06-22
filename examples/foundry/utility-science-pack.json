@@ -32,13 +32,13 @@
         },
         {
           "recipe": {
-            "name": "iron-gear-wheel",
+            "name": "casting-iron-gear-wheel",
             "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "pipe",
+            "name": "casting-pipe",
             "modules": {}
           }
         },
@@ -51,6 +51,36 @@
         {
           "recipe": {
             "name": "battery",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "electronic-circuit",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "casting-iron",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "casting-copper",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "casting-copper-cable",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "casting-steel",
             "modules": {}
           }
         }

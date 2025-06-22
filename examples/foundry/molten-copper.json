@@ -1,11 +1,11 @@
 {
-  "name": "steel-plate",
+  "name": "molten-copper",
   "module": {
     "user": {
       "structures": [
         {
           "recipe": {
-            "name": "steel-plate",
+            "name": "molten-copper",
             "modules": {}
           }
         }

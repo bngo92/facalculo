@@ -90,12 +90,15 @@ impl<'a> Graph<'a> {
                                 pollution: Decimal::ZERO,
                             };
                             for result in &recipe.rate().results {
+                                let structure = recipe.rate().structure(asm).to_owned();
+                                let assembling_machine =
+                                    &recipes.assembling_machines[structure.as_str()];
                                 outputs.insert(
                                     result.name.as_str(),
                                     (
                                         recipe.to_cow(),
-                                        recipe.rate().structure(asm).to_owned(),
-                                        Decimal::ONE,
+                                        structure,
+                                        assembling_machine.crafting_speed.unwrap_or(Decimal::ONE),
                                         effect,
                                     ),
                                 );
@@ -389,15 +392,23 @@ impl<'a> Graph<'a> {
                 .find(|i| i.name == ingredient)
                 .unwrap()
                 .rate;
-        let structures =
-            ratio / speed / (Decimal::ONE + effect.productivity) / (Decimal::ONE + effect.speed);
-        let energy = if structure.is_empty() {
-            Decimal::ZERO
+        let (productivity, energy_per_structure) = if structure.is_empty() {
+            (effect.productivity, Decimal::ZERO)
         } else {
-            structures
-                * self.recipes.assembling_machines[structure].energy()
-                * (Decimal::ONE + effect.consumption)
+            let structure = &self.recipes.assembling_machines[structure];
+            (
+                effect.productivity
+                    + structure
+                        .effect_receiver
+                        .as_ref()
+                        .and_then(|e| e.base_effect.get("productivity"))
+                        .unwrap_or(&Decimal::ZERO),
+                structure.energy() * (Decimal::ONE + effect.consumption),
+            )
         };
+        let structures =
+            ratio / speed / (Decimal::ONE + productivity) / (Decimal::ONE + effect.speed);
+        let energy = structures * energy_per_structure;
         let node = self.graph.add_node(Node {
             required: Some(structures),
             name: recipe.rate().key.clone(),
@@ -418,7 +429,7 @@ impl<'a> Graph<'a> {
             );
             return node;
         }
-        for edge in self.get_ingredients(recipe.rate(), ratio, effect.productivity) {
+        for edge in self.get_ingredients(recipe.rate(), ratio, productivity) {
             if output_set.contains(edge.item.as_str()) {
                 let n = self.build_module_node(
                     outputs,

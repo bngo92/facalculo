@@ -11,7 +11,7 @@ use facalculo::{
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let b = include_bytes!("../data-raw-dump.json");
     let data: Data = serde_json::from_slice(b)?;
-    let recipe_rates = data::calculate_rates(&data, 2);
+    let recipe_rates = data::calculate_rates(&data);
     fs::write(
         "examples/base/copper-ore.json",
         serde_json::to_string_pretty(&facalculo::generate(
@@ -193,7 +193,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?)?,
     )?;
     fs::write(
-        "examples/advanced-circuit.json",
+        "examples/base/advanced-circuit.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "advanced-circuit",
             true,
@@ -265,7 +265,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?)?,
     )?;
     fs::write(
-        "examples/sulfuric-acid.json",
+        "examples/base/sulfuric-acid.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "sulfuric-acid",
             true,
@@ -281,7 +281,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?)?,
     )?;
     fs::write(
-        "examples/processing-unit.json",
+        "examples/base/processing-unit.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "processing-unit",
             true,
@@ -294,7 +294,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?)?,
     )?;
     fs::write(
-        "examples/low-density-structure.json",
+        "examples/base/low-density-structure.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "low-density-structure",
             true,
@@ -394,6 +394,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 modules: HashMap::new(),
             },
         })?,
+    )?;
+    fs::write(
+        "examples/foundry/molten-iron.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "molten-iron",
+            true,
+            &["iron-ore", "calcite"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>(),
+            &HashSet::new(),
+            &recipe_rates,
+        )?)?,
+    )?;
+    fs::write(
+        "examples/foundry/molten-copper.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "molten-copper",
+            true,
+            &["copper-ore", "calcite"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>(),
+            &HashSet::new(),
+            &recipe_rates,
+        )?)?,
     )?;
     Ok(())
 }

@@ -17,13 +17,19 @@
         },
         {
           "recipe": {
-            "name": "iron-gear-wheel",
+            "name": "casting-iron-gear-wheel",
             "modules": {}
           }
         },
         {
           "recipe": {
-            "name": "pipe",
+            "name": "casting-pipe",
+            "modules": {}
+          }
+        },
+        {
+          "recipe": {
+            "name": "casting-steel",
             "modules": {}
           }
         }

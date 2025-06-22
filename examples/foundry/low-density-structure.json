@@ -1,11 +1,11 @@
 {
-  "name": "copper-plate",
+  "name": "low-density-structure",
   "module": {
     "user": {
       "structures": [
         {
           "recipe": {
-            "name": "copper-plate",
+            "name": "casting-low-density-structure",
             "modules": {}
           }
         }
