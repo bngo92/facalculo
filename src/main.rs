@@ -50,8 +50,6 @@ enum Commands {
     Generate {
         #[arg(short, long, num_args = 1..=2)]
         item: Vec<Vec<String>>,
-        #[arg(short, long)]
-        rate: Option<Decimal>,
         #[arg(long)]
         expand: bool,
         #[arg(long)]
@@ -63,8 +61,6 @@ enum Commands {
         files: Vec<String>,
         #[arg(short, long, num_args = 2)]
         item: Vec<Vec<String>>,
-        #[arg(short, long)]
-        rate: Option<Decimal>,
         #[arg(short, long)]
         details: bool,
         #[arg(long)]
@@ -84,7 +80,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             item: items,
             expand,
             import,
-            rate,
             recipe,
         }) => {
             if args.debug {
@@ -133,24 +128,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     required.insert(name.clone(), rate.parse()?);
                 }
             }
-            let defaults = recipe_rates
-                .recipes
-                .iter()
-                .map(|(k, r)| {
-                    (
-                        (*k).to_owned(),
-                        if let Some(rate) = rate {
-                            Ok(rate)
-                        } else {
-                            Err(r.results[0].rate)
-                        },
-                    )
-                })
-                .collect();
             let graphs: Vec<_> = modules
                 .iter()
                 .cloned()
-                .map(|m| Graph::from_module(m, &required, &defaults, &recipe_rates, args.asm))
+                .map(|m| Graph::from_module(m, &required, &recipe_rates, args.asm))
                 .collect();
             let out = compute::render(&graphs, &HashMap::new(), &HashSet::new(), false, None)?;
             if args.render {
@@ -190,7 +171,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::Render {
             files,
             item: items,
-            rate,
             details,
             energy,
         }) => {
@@ -202,7 +182,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     Ok((module.name.clone(), module))
                 })
                 .collect::<Result<HashMap<_, _>, _>>()?;
-            let rates = items
+            let mut rates = items
                 .into_iter()
                 .map(|items| {
                     if let [item, rate] = &items[..] {
@@ -241,28 +221,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into_iter()
                 .map(ToOwned::to_owned)
                 .collect();
-            let mut required = HashMap::new();
             let outputs: HashSet<_> = modules
                 .values()
                 .flat_map(|m| recipe_rates.get_outputs(&m.module))
-                .collect();
-            for o in &outputs {
-                if let Some(rate) = rates.get(*o) {
-                    required.insert((*o).to_owned(), *rate);
-                }
-            }
-            let defaults = recipe_rates
-                .recipes()
-                .map(|(k, r)| {
-                    (
-                        (*k).to_owned(),
-                        if let Some(rate) = rate {
-                            Ok(rate)
-                        } else {
-                            Err(r.results[0].rate)
-                        },
-                    )
-                })
                 .collect();
             let mut graphs = Vec::new();
             let mut imports: HashMap<String, Vec<(String, usize, Decimal)>> = HashMap::new();
@@ -270,8 +231,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             for module in module_order {
                 let graph = Graph::from_module(
                     modules.remove(&module).unwrap(),
-                    &required,
-                    &defaults,
+                    &rates,
                     &recipe_rates,
                     args.asm,
                 );
@@ -282,7 +242,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Import::Node(node) => (graph.graph[*node].required.unwrap(), node),
                         Import::Import(node, required) => (*required, node),
                     };
-                    *required.entry(import.clone()).or_default() += import_required;
+                    *rates.entry(import.clone()).or_default() += import_required;
                     imports.entry(import.clone()).or_default().push((
                         graph.name.clone(),
                         node.index(),
@@ -341,7 +301,6 @@ mod tests {
                 recipe_rates.get("advanced-circuit").unwrap().rate().results[0].rate
                     * Decimal::from_f64(0.5).unwrap(),
             )]),
-            &HashMap::new(),
             &recipe_rates,
             1,
         );
@@ -415,7 +374,6 @@ mod tests {
                 recipe_rates.get("advanced-circuit").unwrap().rate().results[0].rate
                     * Decimal::from_f64(0.5).unwrap(),
             )]),
-            &HashMap::new(),
             &recipe_rates,
             1,
         );
@@ -491,7 +449,6 @@ mod tests {
                     .rate
                     * Decimal::from_f64(0.5).unwrap(),
             )]),
-            &HashMap::new(),
             &recipe_rates,
             1,
         );

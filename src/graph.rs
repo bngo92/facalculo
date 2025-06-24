@@ -52,7 +52,6 @@ impl<'a> Graph<'a> {
     pub fn from_module(
         module: NamedModule,
         required: &HashMap<String, Decimal>,
-        defaults: &HashMap<String, Result<Decimal, Decimal>>,
         recipes: &'a RecipeRepository,
         asm: i64,
     ) -> Graph<'a> {
@@ -133,18 +132,7 @@ impl<'a> Graph<'a> {
                     graph.build_module_node(
                         &outputs,
                         item,
-                        *required
-                            .get(*item)
-                            .unwrap_or_else(|| match &defaults[*item] {
-                                Ok(rate) => rate,
-                                Err(rate) => {
-                                    eprintln!(
-                                        "Using {} for {item} (1 assembler)",
-                                        crate::round_string(*rate)
-                                    );
-                                    rate
-                                }
-                            }),
+                        required[*item],
                         &output_set,
                         &exports,
                         true,
@@ -239,13 +227,7 @@ impl<'a> Graph<'a> {
                 research_speed,
                 research_time,
             } => {
-                let required = required
-                    .get("science")
-                    .copied()
-                    .unwrap_or_else(|| match &defaults["science"] {
-                        Ok(rate) => *rate,
-                        Err(_) => todo!(),
-                    });
+                let required = required["science"];
                 let effect = Effect {
                     productivity: modules
                         .iter()
@@ -305,14 +287,7 @@ impl<'a> Graph<'a> {
                 );
             }
             Module::RocketSilo { modules } => {
-                let required =
-                    required
-                        .get("rocket")
-                        .copied()
-                        .unwrap_or_else(|| match &defaults["rocket"] {
-                            Ok(rate) => *rate,
-                            Err(_) => todo!(),
-                        });
+                let required = required["rocket"];
                 let effect = Effect {
                     productivity: modules
                         .iter()
