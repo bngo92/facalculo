@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use facalculo::{
     compute,
-    data::{self, Data, RepositoryOption},
+    data::{self, Data},
     graph::{Graph, Import},
     module::NamedModule,
 };
@@ -175,7 +175,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             energy,
         }) => {
             // Parse arguments
-            let mut modules = files
+            let modules = files
                 .into_iter()
                 .map(|f| -> Result<_, Box<dyn std::error::Error>> {
                     let module: NamedModule = serde_json::from_slice(&fs::read(f)?)?;
@@ -194,24 +194,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .collect::<Result<HashMap<_, Decimal>, Box<dyn std::error::Error>>>()?;
 
             // Sort modules so outputs are processed before inputs
+            let mut outputs = HashMap::new();
+            let mut active_set = HashSet::new();
+            for (node, module) in &modules {
+                for output in recipe_rates.get_outputs(&module.module) {
+                    if outputs.insert(output, node).is_some() {
+                        return Err(format!("multiple modules are exporting {output}").into());
+                    }
+                    if rates.contains_key(output) {
+                        active_set.insert(node.clone());
+                    }
+                }
+            }
             let mut graph = GraphMap::<&str, (), Directed>::new();
             for (node, module) in &modules {
                 graph.add_node(node);
                 for input in recipe_rates.get_resource_inputs(&module.module) {
+                    // Ignore resources
                     if node != input {
-                        match recipe_rates.get_options(input) {
-                            RepositoryOption::None => {}
-                            RepositoryOption::Some(recipe) => {
-                                graph.add_edge(node, &recipe.rate().key, ());
-                            }
-                            RepositoryOption::Multiple(recipes) => {
-                                for recipe in recipes {
-                                    if modules.contains_key(recipe) {
-                                        graph.add_edge(node, recipe, ());
-                                        break;
-                                    }
-                                }
-                            }
+                        if let Some(export_node) = outputs.get(input) {
+                            graph.add_edge(node, export_node, ());
                         }
                     }
                 }
@@ -221,20 +223,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into_iter()
                 .map(ToOwned::to_owned)
                 .collect();
-            let outputs: HashSet<_> = modules
-                .values()
-                .flat_map(|m| recipe_rates.get_outputs(&m.module))
-                .collect();
             let mut graphs = Vec::new();
             let mut imports: HashMap<String, Vec<(String, usize, Decimal)>> = HashMap::new();
             let mut total_energy = Decimal::ZERO;
             for module in module_order {
-                let graph = Graph::from_module(
-                    modules.remove(&module).unwrap(),
-                    &rates,
-                    &recipe_rates,
-                    args.asm,
-                );
+                if !active_set.contains(&module) {
+                    continue;
+                }
+                active_set.extend(graph.neighbors(&module).map(ToOwned::to_owned));
+                let graph =
+                    Graph::from_module(modules[&module].clone(), &rates, &recipe_rates, args.asm);
                 for (import, node) in &graph.imports {
                     // We do not create import nodes for science packs
                     let (import_required, node) = match node {
@@ -255,7 +253,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let out = compute::render(
                 &graphs,
                 &imports,
-                &outputs.into_iter().map(ToOwned::to_owned).collect(),
+                &outputs.into_keys().map(ToOwned::to_owned).collect(),
                 details,
                 if energy { Some(total_energy) } else { None },
             )?;
