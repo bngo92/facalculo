@@ -16,7 +16,7 @@ pub fn render(
     imports: &HashMap<String, Vec<(String, usize, Decimal)>>,
     used_imports: &HashSet<String>,
     details: bool,
-    total_energy: Option<Decimal>,
+    structure_energy: &mut [(String, i32, Decimal)],
 ) -> Result<String, Box<dyn std::error::Error>> {
     let mut f = String::new();
     writeln!(f, "digraph {{")?;
@@ -35,15 +35,28 @@ pub fn render(
             imports,
             used_imports,
             details,
-            total_energy.is_some(),
+            !structure_energy.is_empty(),
         )?;
     }
-    if let Some(energy) = total_energy {
+    if !structure_energy.is_empty() {
+        let total_energy: Decimal = structure_energy.iter().map(|t| t.2).sum();
+        structure_energy.sort_by_key(|t| -t.2);
+        let structure_energy: Vec<_> = structure_energy
+            .iter_mut()
+            .filter_map(|t| {
+                if t.0.is_empty() || t.2.is_zero() {
+                    None
+                } else {
+                    Some(format!("{} {} {} W", t.1, t.0, crate::round_string(t.2)))
+                }
+            })
+            .collect();
         writeln!(
             f,
-            "{INDENT}{} [label = \"{} W\"]",
+            "{INDENT}{} [label = \"{} W\\n{}\" shape=record]",
             offset,
-            crate::round_string(energy)
+            crate::round_string(total_energy),
+            structure_energy.join("\\n")
         )?;
     }
     writeln!(f, "}}")?;
@@ -93,11 +106,12 @@ fn render_module(
             .sum::<i32>()
             > 1
     {
+        let total_energy: Decimal = graph.energy.iter().map(|t| t.1).sum();
         writeln!(
             f,
             "{indent}{indent}{} [label = \"{} W\"]",
             g.node_count() + index,
-            crate::round_string(graph.energy)
+            crate::round_string(total_energy)
         )?;
         additional_nodes += 1;
     }

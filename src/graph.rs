@@ -22,7 +22,8 @@ pub struct Graph<'a> {
     pub recipes: &'a RecipeRepository,
     pub imports: HashMap<String, Import>,
     pub outputs: HashMap<String, (NodeIndex, Decimal)>,
-    pub energy: Decimal,
+    pub structures: HashMap<String, i32>,
+    pub energy: HashMap<String, Decimal>,
 }
 
 #[derive(Clone)]
@@ -45,7 +46,8 @@ impl<'a> Graph<'a> {
             recipes,
             imports: HashMap::new(),
             outputs: HashMap::new(),
-            energy: Decimal::ZERO,
+            structures: HashMap::new(),
+            energy: HashMap::new(),
         }
     }
 
@@ -188,7 +190,14 @@ impl<'a> Graph<'a> {
                         structure: Some(recipe.structure(asm).to_owned()),
                         energy,
                     });
-                    graph.energy += energy;
+                    *graph
+                        .structures
+                        .entry(recipe.structure(asm).to_owned())
+                        .or_default() += ratio.ceil().to_i32().unwrap();
+                    *graph
+                        .energy
+                        .entry(recipe.structure(asm).to_owned())
+                        .or_default() += energy;
                     if required[output] > 0. {
                         graph.outputs.insert(
                             output.to_owned(),
@@ -390,7 +399,9 @@ impl<'a> Graph<'a> {
             structure: Some(structure.clone()),
             energy,
         });
-        self.energy += energy;
+        *self.structures.entry(structure.clone()).or_default() +=
+            structures.ceil().to_i32().unwrap();
+        *self.energy.entry(structure.clone()).or_default() += energy;
         for result in &recipe.rate().results {
             if exports.contains(&result.name.as_str()) {
                 self.outputs

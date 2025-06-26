@@ -133,7 +133,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .cloned()
                 .map(|m| Graph::from_module(m, &required, &recipe_rates, args.asm))
                 .collect();
-            let out = compute::render(&graphs, &HashMap::new(), &HashSet::new(), false, None)?;
+            let out = compute::render(&graphs, &HashMap::new(), &HashSet::new(), false, &mut [])?;
             if args.render {
                 let g = parse(&out)?;
                 exec(
@@ -225,7 +225,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .collect();
             let mut graphs = Vec::new();
             let mut imports: HashMap<String, Vec<(String, usize, Decimal)>> = HashMap::new();
-            let mut total_energy = Decimal::ZERO;
+            let mut structure_count = HashMap::new();
+            let mut total_energy = HashMap::new();
             for module in module_order {
                 if !active_set.contains(&module) {
                     continue;
@@ -247,7 +248,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         import_required,
                     ));
                 }
-                total_energy += graph.energy;
+                if energy {
+                    for (structure, count) in &graph.structures {
+                        *structure_count.entry(structure.clone()).or_default() += count;
+                    }
+                    for (structure, energy) in &graph.energy {
+                        *total_energy.entry(structure.clone()).or_default() += energy;
+                    }
+                }
                 graphs.push(graph);
             }
             let out = compute::render(
@@ -255,7 +263,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &imports,
                 &outputs.into_keys().map(ToOwned::to_owned).collect(),
                 details,
-                if energy { Some(total_energy) } else { None },
+                &mut structure_count
+                    .into_iter()
+                    .map(|t| {
+                        let energy = total_energy[&t.0];
+                        (t.0, t.1, energy)
+                    })
+                    .collect::<Vec<_>>(),
             )?;
             let g = parse(&out)?;
             let format = match args.out.as_deref() {
