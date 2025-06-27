@@ -37,7 +37,7 @@ pub fn get_recipe<'a>(
                     found = true;
                     eprintln!("{name} was not found. Similar items:");
                 }
-                eprintln!("{}", k);
+                eprintln!("{k}");
             }
         }
         Err(format!("{name} was not found"))

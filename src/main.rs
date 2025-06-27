@@ -64,6 +64,8 @@ enum Commands {
         #[arg(short, long)]
         details: bool,
         #[arg(long)]
+        production: Option<String>,
+        #[arg(long)]
         energy: bool,
     },
 }
@@ -133,7 +135,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .cloned()
                 .map(|m| Graph::from_module(m, &required, &recipe_rates, args.asm))
                 .collect();
-            let out = compute::render(&graphs, &HashMap::new(), &HashSet::new(), false, &mut [])?;
+            let out = compute::render(
+                &graphs,
+                &HashMap::new(),
+                &HashSet::new(),
+                false,
+                &mut [],
+                &mut [],
+            )?;
             if args.render {
                 let g = parse(&out)?;
                 exec(
@@ -172,6 +181,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             files,
             item: items,
             details,
+            production,
             energy,
         }) => {
             // Parse arguments
@@ -225,6 +235,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .collect();
             let mut graphs = Vec::new();
             let mut imports: HashMap<String, Vec<(String, usize, Decimal)>> = HashMap::new();
+            let production = if let Some(production) = production {
+                let (rate, unit) = production.split_at(production.len() - 1);
+                Some(
+                    rate.parse::<Decimal>()
+                        .expect("production should be a timescale")
+                        * match unit {
+                            "s" => Decimal::ONE,
+                            "m" => Decimal::from(60),
+                            "h" => Decimal::from(3400),
+                            _ => return Err(format!("{unit} is an invalid unit").into()),
+                        },
+                )
+            } else {
+                None
+            };
+            let mut total_production = HashMap::new();
             let mut structure_count = HashMap::new();
             let mut total_energy = HashMap::new();
             for module in module_order {
@@ -248,6 +274,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         import_required,
                     ));
                 }
+                if let Some(production) = production {
+                    for (item, rate) in &graph.production {
+                        *total_production.entry(item.clone()).or_default() += production * rate;
+                    }
+                }
                 if energy {
                     for (structure, count) in &graph.structures {
                         *structure_count.entry(structure.clone()).or_default() += count;
@@ -263,6 +294,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &imports,
                 &outputs.into_keys().map(ToOwned::to_owned).collect(),
                 details,
+                &mut total_production.into_iter().collect::<Vec<_>>(),
                 &mut structure_count
                     .into_iter()
                     .map(|t| {
@@ -282,7 +314,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &mut PrinterContext::default(),
                 vec![
                     format.into(),
-                    CommandArg::Output(format!("out.{:?}", format).to_lowercase()),
+                    CommandArg::Output(format!("out.{format:?}").to_lowercase()),
                 ],
             )?;
             // Uncomment when running on mac
@@ -349,7 +381,7 @@ mod tests {
         edges.sort_by_key(|(x, e, y)| (x.name.to_owned(), y.name.to_owned(), e.required));
         let edges: Vec<_> = edges
             .into_iter()
-            .map(|(x, e, y)| format!("{} -> {} -> {}", x, e, y))
+            .map(|(x, e, y)| format!("{x} -> {e} -> {y}"))
             .collect();
         assert_eq!(
             edges,
@@ -420,7 +452,7 @@ mod tests {
         edges.sort_by_key(|(x, e, y)| (x.name.to_owned(), y.name.to_owned(), e.required));
         let edges: Vec<_> = edges
             .into_iter()
-            .map(|(x, e, y)| format!("{} -> {} -> {}", x, e, y))
+            .map(|(x, e, y)| format!("{x} -> {e} -> {y}"))
             .collect();
         assert_eq!(
             edges,
@@ -496,7 +528,7 @@ mod tests {
         edges.sort_by_key(|(x, e, y)| (x.name.to_owned(), y.name.to_owned(), e.required));
         let edges: Vec<_> = edges
             .into_iter()
-            .map(|(x, e, y)| format!("{} -> {} -> {}", x, e, y))
+            .map(|(x, e, y)| format!("{x} -> {e} -> {y}"))
             .collect();
         assert_eq!(
             edges,

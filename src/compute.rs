@@ -16,6 +16,7 @@ pub fn render(
     imports: &HashMap<String, Vec<(String, usize, Decimal)>>,
     used_imports: &HashSet<String>,
     details: bool,
+    production: &mut [(String, Decimal)],
     structure_energy: &mut [(String, i32, Decimal)],
 ) -> Result<String, Box<dyn std::error::Error>> {
     let mut f = String::new();
@@ -38,6 +39,19 @@ pub fn render(
             !structure_energy.is_empty(),
         )?;
     }
+    if !production.is_empty() {
+        production.sort_by_key(|t| -t.1);
+        let production: Vec<_> = production
+            .iter_mut()
+            .map(|t| format!("{} {}", crate::round_string(t.1), t.0))
+            .collect();
+        writeln!(
+            f,
+            "{INDENT}{} [label = \"{}\" shape=record]",
+            offset,
+            production.join("\\n")
+        )?;
+    }
     if !structure_energy.is_empty() {
         let total_energy: Decimal = structure_energy.iter().map(|t| t.2).sum();
         structure_energy.sort_by_key(|t| -t.2);
@@ -54,7 +68,7 @@ pub fn render(
         writeln!(
             f,
             "{INDENT}{} [label = \"{} W\\n{}\" shape=record]",
-            offset,
+            offset + 1,
             crate::round_string(total_energy),
             structure_energy.join("\\n")
         )?;

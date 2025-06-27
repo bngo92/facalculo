@@ -22,6 +22,7 @@ pub struct Graph<'a> {
     pub recipes: &'a RecipeRepository,
     pub imports: HashMap<String, Import>,
     pub outputs: HashMap<String, (NodeIndex, Decimal)>,
+    pub production: HashMap<String, Decimal>,
     pub structures: HashMap<String, i32>,
     pub energy: HashMap<String, Decimal>,
 }
@@ -46,6 +47,7 @@ impl<'a> Graph<'a> {
             recipes,
             imports: HashMap::new(),
             outputs: HashMap::new(),
+            production: HashMap::new(),
             structures: HashMap::new(),
             energy: HashMap::new(),
         }
@@ -190,6 +192,10 @@ impl<'a> Graph<'a> {
                         structure: Some(recipe.structure(asm).to_owned()),
                         energy,
                     });
+                    graph.production = required
+                        .iter()
+                        .map(|(i, r)| ((*i).to_owned(), Decimal::from_f64(*r).unwrap()))
+                        .collect();
                     *graph
                         .structures
                         .entry(recipe.structure(asm).to_owned())
@@ -399,6 +405,7 @@ impl<'a> Graph<'a> {
             structure: Some(structure.clone()),
             energy,
         });
+        *self.production.entry(ingredient.to_owned()).or_default() += required;
         *self.structures.entry(structure.clone()).or_default() +=
             structures.ceil().to_i32().unwrap();
         *self.energy.entry(structure.clone()).or_default() += energy;
@@ -600,7 +607,7 @@ impl Node {
             } else {
                 String::new()
             };
-            format!("{}\\n{}{}", s, structure, energy)
+            format!("{s}\\n{structure}{energy}")
         } else {
             s
         }
