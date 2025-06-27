@@ -15,6 +15,7 @@ use std::{
 };
 
 pub type GraphType = StableGraph<Node, Edge>;
+type OutputInfo<'a> = &'a HashMap<&'a str, (Rate<Cow<'a, RecipeRate>>, String, Decimal, Effect)>;
 
 pub struct Graph<'a> {
     pub name: String,
@@ -366,7 +367,7 @@ impl<'a> Graph<'a> {
 
     fn build_module_node(
         &mut self,
-        outputs: &HashMap<&str, (Rate<Cow<'_, RecipeRate>>, String, Decimal, Effect)>,
+        outputs: OutputInfo,
         ingredient: &str,
         required: Decimal,
         output_set: &HashSet<&str>,

@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use facalculo::{
-    compute,
+    compute::{self, RenderArgs},
     data::{self, Data},
     graph::{Graph, Import},
     module::NamedModule,
@@ -137,9 +137,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .collect();
             let out = compute::render(
                 &graphs,
-                &HashMap::new(),
-                &HashSet::new(),
-                false,
+                &RenderArgs::new(HashMap::new(), HashSet::new(), false),
                 &mut [],
                 &mut [],
             )?;
@@ -291,9 +289,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             let out = compute::render(
                 &graphs,
-                &imports,
-                &outputs.into_keys().map(ToOwned::to_owned).collect(),
-                details,
+                &RenderArgs::new(
+                    imports,
+                    outputs.into_keys().map(ToOwned::to_owned).collect(),
+                    details,
+                ),
                 &mut total_production.into_iter().collect::<Vec<_>>(),
                 &mut structure_count
                     .into_iter()

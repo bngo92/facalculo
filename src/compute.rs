@@ -11,11 +11,29 @@ use std::{
 
 static INDENT: &str = "    ";
 
+pub struct RenderArgs {
+    imports: HashMap<String, Vec<(String, usize, Decimal)>>,
+    used_imports: HashSet<String>,
+    details: bool,
+}
+
+impl RenderArgs {
+    pub fn new(
+        imports: HashMap<String, Vec<(String, usize, Decimal)>>,
+        used_imports: HashSet<String>,
+        details: bool,
+    ) -> Self {
+        Self {
+            imports,
+            used_imports,
+            details,
+        }
+    }
+}
+
 pub fn render(
     graphs: &[Graph],
-    imports: &HashMap<String, Vec<(String, usize, Decimal)>>,
-    used_imports: &HashSet<String>,
-    details: bool,
+    args: &RenderArgs,
     production: &mut [(String, Decimal)],
     structure_energy: &mut [(String, i32, Decimal)],
 ) -> Result<String, Box<dyn std::error::Error>> {
@@ -33,9 +51,7 @@ pub fn render(
             graph,
             INDENT,
             &offsets,
-            imports,
-            used_imports,
-            details,
+            args,
             !structure_energy.is_empty(),
         )?;
     }
@@ -82,11 +98,14 @@ fn render_module(
     graph: &Graph,
     indent: &str,
     offsets: &HashMap<&str, usize>,
-    imports: &HashMap<String, Vec<(String, usize, Decimal)>>,
-    used_imports: &HashSet<String>,
-    details: bool,
+    args: &RenderArgs,
     show_energy: bool,
 ) -> Result<usize, Box<dyn std::error::Error>> {
+    let RenderArgs {
+        imports,
+        used_imports,
+        details,
+    } = args;
     let index = offsets[graph.name.as_str()];
     let mut additional_nodes = 0;
     let g = &graph.graph;
@@ -102,7 +121,7 @@ fn render_module(
                 "{indent}{}{} [label = \"{}\" shape=record]",
                 INDENT,
                 g.to_index(node.id()) + index,
-                node.weight().to_string(details)
+                node.weight().to_string(*details)
             )?;
         } else {
             writeln!(
@@ -110,7 +129,7 @@ fn render_module(
                 "{indent}{}{} [label = \"{}\"]",
                 INDENT,
                 g.to_index(node.id()) + index,
-                node.weight().to_string(details)
+                node.weight().to_string(*details)
             )?;
         }
     }
