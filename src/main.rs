@@ -12,7 +12,6 @@ use graphviz_rust::{
 };
 use petgraph::{prelude::GraphMap, Directed};
 use rust_decimal::Decimal;
-use serde_json::Value;
 use std::{
     collections::{HashMap, HashSet},
     fs,
@@ -30,8 +29,6 @@ struct Args {
     out: Option<String>,
     #[arg(long, value_parser = 1..=3, default_value_t = 1)]
     asm: i64,
-    #[arg(long)]
-    debug: bool,
     #[arg(long, value_enum)]
     belt: Option<Belt>,
     #[command(subcommand)]
@@ -84,19 +81,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             import,
             recipe,
         }) => {
-            if args.debug {
-                let data: Value = serde_json::from_slice(b)?;
-                println!(
-                    "{:?}",
-                    data["recipes"]
-                        .as_array()
-                        .expect("recipes should be an array")
-                        .iter()
-                        .find(|r| r["key"] == items[0][0])
-                        .ok_or(format!("{} was not found", items[0][0]))?
-                );
-                return Ok(());
-            }
             let mut imports = Vec::new();
             for import in &import {
                 if recipe_rates.get(import.as_str()).is_some()
