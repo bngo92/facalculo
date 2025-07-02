@@ -1,16 +1,16 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use facalculo::{
-    compute::{self, RenderArgs},
+    compute,
     data::{self, Data},
-    graph::{Graph, Import},
+    graph::Graph,
     module::NamedModule,
+    module_graph::ModuleGraph,
 };
 use graphviz_rust::{
     cmd::{CommandArg, Format},
     exec, parse,
     printer::PrinterContext,
 };
-use petgraph::{prelude::GraphMap, Directed};
 use rust_decimal::Decimal;
 use std::{
     collections::{HashMap, HashSet},
@@ -119,12 +119,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .cloned()
                 .map(|m| Graph::from_module(m, &required, &recipe_rates, args.asm))
                 .collect();
-            let out = compute::render(
-                &graphs,
-                &RenderArgs::new(HashMap::new(), HashSet::new(), false),
-                &mut [],
-                &mut [],
-            )?;
+            let mut graph = ModuleGraph {
+                graphs,
+                imports: HashMap::new(),
+                used_imports: HashSet::new(),
+                production: Vec::new(),
+                energy: Vec::new(),
+            };
+            let out = graph.render(false)?;
             if args.render {
                 let g = parse(&out)?;
                 exec(
@@ -138,7 +140,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Command::new("open").arg("out.svg").spawn()?;
             }
             if args.total {
-                for (key, required) in compute::total(&graphs) {
+                for (key, required) in compute::total(&graph.graphs) {
                     println!(
                         "{} {key}/s{}",
                         facalculo::round_string(required),
@@ -185,38 +187,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 })
                 .collect::<Result<HashMap<_, Decimal>, Box<dyn std::error::Error>>>()?;
 
-            // Sort modules so outputs are processed before inputs
-            let mut outputs = HashMap::new();
-            let mut active_set = HashSet::new();
-            for (node, module) in &modules {
-                for output in recipe_rates.get_outputs(&module.module) {
-                    if outputs.insert(output, node).is_some() {
-                        return Err(format!("multiple modules are exporting {output}").into());
-                    }
-                    if rates.contains_key(output) {
-                        active_set.insert(node.clone());
-                    }
-                }
-            }
-            let mut graph = GraphMap::<&str, (), Directed>::new();
-            for (node, module) in &modules {
-                graph.add_node(node);
-                for input in recipe_rates.get_resource_inputs(&module.module) {
-                    // Ignore resources
-                    if node != input {
-                        if let Some(export_node) = outputs.get(input) {
-                            graph.add_edge(node, export_node, ());
-                        }
-                    }
-                }
-            }
-            let module_order: Vec<_> = petgraph::algo::toposort(&graph, None)
-                .unwrap()
-                .into_iter()
-                .map(ToOwned::to_owned)
-                .collect();
-            let mut graphs = Vec::new();
-            let mut imports: HashMap<String, Vec<(String, usize, Decimal)>> = HashMap::new();
             let production = if let Some(production) = production {
                 let (rate, unit) = production.split_at(production.len() - 1);
                 Some(
@@ -232,61 +202,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 None
             };
-            let mut total_production = HashMap::new();
-            let mut structure_count = HashMap::new();
-            let mut total_energy = HashMap::new();
-            for module in module_order {
-                if !active_set.contains(&module) {
-                    continue;
-                }
-                active_set.extend(graph.neighbors(&module).map(ToOwned::to_owned));
-                let graph =
-                    Graph::from_module(modules[&module].clone(), &rates, &recipe_rates, args.asm);
-                for (import, node) in &graph.imports {
-                    // We do not create import nodes for science packs
-                    let (import_required, node) = match node {
-                        Import::Resource(..) => continue,
-                        Import::Node(node) => (graph.graph[*node].required.unwrap(), node),
-                        Import::Import(node, required) => (*required, node),
-                    };
-                    *rates.entry(import.clone()).or_default() += import_required;
-                    imports.entry(import.clone()).or_default().push((
-                        graph.name.clone(),
-                        node.index(),
-                        import_required,
-                    ));
-                }
-                if let Some(production) = production {
-                    for (item, rate) in &graph.production {
-                        *total_production.entry(item.clone()).or_default() += production * rate;
-                    }
-                }
-                if energy {
-                    for (structure, count) in &graph.structures {
-                        *structure_count.entry(structure.clone()).or_default() += count;
-                    }
-                    for (structure, energy) in &graph.energy {
-                        *total_energy.entry(structure.clone()).or_default() += energy;
-                    }
-                }
-                graphs.push(graph);
-            }
-            let out = compute::render(
-                &graphs,
-                &RenderArgs::new(
-                    imports,
-                    outputs.into_keys().map(ToOwned::to_owned).collect(),
-                    details,
-                ),
-                &mut total_production.into_iter().collect::<Vec<_>>(),
-                &mut structure_count
-                    .into_iter()
-                    .map(|t| {
-                        let energy = total_energy[&t.0];
-                        (t.0, t.1, energy)
-                    })
-                    .collect::<Vec<_>>(),
+            let mut graph = ModuleGraph::build(
+                &recipe_rates,
+                &modules,
+                &mut rates,
+                production,
+                energy,
+                args.asm,
             )?;
+            let out = graph.render(details)?;
             let g = parse(&out)?;
             let format = match args.out.as_deref() {
                 Some("pdf") => Format::Pdf,

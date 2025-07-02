@@ -7,6 +7,7 @@ pub mod compute;
 pub mod data;
 pub mod graph;
 pub mod module;
+pub mod module_graph;
 
 pub fn generate(
     name: &str,
