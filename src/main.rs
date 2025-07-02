@@ -1,6 +1,5 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use facalculo::{
-    compute,
     data::{self, Data},
     graph::Graph,
     module::NamedModule,
@@ -140,11 +139,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Command::new("open").arg("out.svg").spawn()?;
             }
             if args.total {
-                for (key, required) in compute::total(&graph.graphs) {
+                for (key, required) in graph.production {
                     println!(
                         "{} {key}/s{}",
                         facalculo::round_string(required),
-                        if let Some(recipe) = recipe_rates.get(key) {
+                        if let Some(recipe) = recipe_rates.get(&key) {
                             format!(
                                 " ({})",
                                 facalculo::round_string(required / recipe.rate().results[0].rate)

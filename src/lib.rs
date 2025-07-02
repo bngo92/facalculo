@@ -3,7 +3,6 @@ use module::{ModuleBuilder, NamedModule};
 use rust_decimal::Decimal;
 use std::collections::HashSet;
 
-pub mod compute;
 pub mod data;
 pub mod graph;
 pub mod module;
