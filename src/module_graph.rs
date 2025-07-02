@@ -141,7 +141,7 @@ impl ModuleGraph<'_> {
             self.production.sort_by_key(|t| -t.1);
             let production: Vec<_> = self
                 .production
-                .iter_mut()
+                .iter()
                 .map(|t| format!("{} {}", crate::round_string(t.1), t.0))
                 .collect();
             writeln!(
@@ -156,7 +156,7 @@ impl ModuleGraph<'_> {
             self.energy.sort_by_key(|t| -t.2);
             let structure_energy: Vec<_> = self
                 .energy
-                .iter_mut()
+                .iter()
                 .filter_map(|t| {
                     if t.0.is_empty() || t.2.is_zero() {
                         None
