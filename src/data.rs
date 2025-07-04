@@ -210,36 +210,43 @@ pub fn calculate_rates(data: &Data) -> RecipeRepository {
     let mut resources = HashMap::new();
     // Add mining recipes
     for (key, resource) in &data.resource {
+        let key = if *key == "sulfuric-acid-geyser" {
+            "sulfuric-acid"
+        } else {
+            key
+        };
         let results = vec![IngredientRate {
-            rate: match *key {
+            rate: match key {
                 // Pumpjacks have a minimum of 2 fluid per second
-                "crude-oil" => Decimal::TWO,
+                "crude-oil" | "sulfuric-acid" => Decimal::TWO,
                 _ => resource.minable.mining_time,
             },
-            name: (*key).to_owned(),
+            name: key.to_owned(),
         }];
         let rate = RecipeRate {
             category: None,
-            key: (*key).to_owned(),
+            key: key.to_owned(),
             ingredients: results.clone(),
             results,
         };
-        resources.insert((*key).to_owned(), rate);
+        resources.insert(key.to_owned(), rate);
     }
-    // Add water pumping
-    let water = vec![IngredientRate {
-        rate: Decimal::ONE,
-        name: String::from("water"),
-    }];
-    resources.insert(
-        "water".to_owned(),
-        RecipeRate {
-            category: None,
-            key: "water".to_owned(),
-            ingredients: water.clone(),
-            results: water,
-        },
-    );
+    // Add fluids like water pumping
+    for fluid in ["water", "lava"] {
+        let results = vec![IngredientRate {
+            rate: Decimal::ONE,
+            name: String::from(fluid),
+        }];
+        resources.insert(
+            fluid.to_owned(),
+            RecipeRate {
+                category: None,
+                key: fluid.to_owned(),
+                ingredients: results.clone(),
+                results,
+            },
+        );
+    }
     let mut recipe_outputs: HashMap<String, Vec<String>> = HashMap::new();
     for (key, recipe) in &recipe_rates {
         for result in &recipe.results {
@@ -471,12 +478,11 @@ impl RecipeRate {
             _ => unreachable!(),
         };
         if let Some(structure) = match self.key.as_str() {
-            "copper-ore" => Some("electric-mining-drill"),
-            "iron-ore" => Some("electric-mining-drill"),
-            "coal" => Some("electric-mining-drill"),
-            "stone" => Some("electric-mining-drill"),
-            "water" => Some("offshore-pump"),
-            "crude-oil" => Some("pumpjack"),
+            "copper-ore" | "iron-ore" | "coal" | "stone" | "calcite" => {
+                Some("electric-mining-drill")
+            }
+            "water" | "lava" => Some("offshore-pump"),
+            "crude-oil" | "sulfuric-acid" => Some("pumpjack"),
             "science" => Some("lab"),
             "rocket" => Some(""),
             _ => None,

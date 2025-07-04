@@ -109,7 +109,7 @@ impl<'a> Graph<'a> {
                             }
                         }
                         Structure::Resource { name, structure } => {
-                            let mut recipe = (*recipes.get(name).unwrap().rate()).clone();
+                            let mut recipe = recipes.resources[name].clone();
                             let structure = structure
                                 .clone()
                                 .unwrap_or_else(|| recipe.structure(asm).to_owned());
@@ -134,14 +134,16 @@ impl<'a> Graph<'a> {
                 let output_set: HashSet<_> = outputs.keys().cloned().collect();
                 let exports: Vec<_> = output_set.difference(&inputs).cloned().collect();
                 for item in &exports {
-                    graph.build_module_node(
-                        &outputs,
-                        item,
-                        required[*item],
-                        &output_set,
-                        &exports,
-                        true,
-                    );
+                    if let Some(required) = required.get(*item) {
+                        graph.build_module_node(
+                            &outputs,
+                            item,
+                            *required,
+                            &output_set,
+                            &exports,
+                            true,
+                        );
+                    }
                 }
             }
             Module::AdvancedOilProcessing {} => {
@@ -413,7 +415,7 @@ impl<'a> Graph<'a> {
         for result in &recipe.rate().results {
             if exports.contains(&result.name.as_str()) {
                 self.outputs
-                    .insert(result.name.to_owned(), (node, required));
+                    .insert(result.name.to_owned(), (node, ratio * result.rate));
             }
         }
         if let Rate::Resource(recipe) = recipe {

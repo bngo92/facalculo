@@ -34,13 +34,11 @@ impl ModuleGraph<'_> {
         asm: i64,
     ) -> Result<ModuleGraph<'a>, Box<dyn std::error::Error>> {
         // Sort modules so outputs are processed before inputs
-        let mut outputs = HashMap::new();
+        let mut outputs: HashMap<_, Vec<_>> = HashMap::new();
         let mut active_set = HashSet::new();
         for (node, module) in modules {
             for output in recipe_rates.get_outputs(&module.module) {
-                if outputs.insert(output, node.as_str()).is_some() {
-                    return Err(format!("multiple modules are exporting {output}").into());
-                }
+                outputs.entry(output).or_default().push(node.as_str());
                 if required.contains_key(output) {
                     active_set.insert(node.clone());
                 }
@@ -52,8 +50,13 @@ impl ModuleGraph<'_> {
             for input in recipe_rates.get_resource_inputs(&module.module) {
                 // Ignore resources
                 if node != input {
-                    if let Some(export_node) = outputs.get(input) {
-                        graph.add_edge(node.as_str(), export_node, ());
+                    if let Some(export_nodes) = outputs.get(input) {
+                        if let [export_node] = &export_nodes[..] {
+                            graph.add_edge(node.as_str(), export_node, ());
+                        } else {
+                            // TODO: support multiple exports
+                            return Err(format!("multiple modules are exporting {input}").into());
+                        }
                     }
                 }
             }

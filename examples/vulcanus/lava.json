@@ -1,0 +1,15 @@
+{
+  "name": "lava",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "resource": {
+            "name": "lava",
+            "structure": null
+          }
+        }
+      ]
+    }
+  }
+}

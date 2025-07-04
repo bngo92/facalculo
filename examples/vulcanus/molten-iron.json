@@ -1,0 +1,15 @@
+{
+  "name": "molten-iron-from-lava",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "molten-iron-from-lava",
+            "modules": {}
+          }
+        }
+      ]
+    }
+  }
+}

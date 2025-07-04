@@ -1,0 +1,15 @@
+{
+  "name": "sulfuric-acid",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "resource": {
+            "name": "sulfuric-acid",
+            "structure": null
+          }
+        }
+      ]
+    }
+  }
+}

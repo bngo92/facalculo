@@ -421,5 +421,51 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &recipe_rates,
         )?)?,
     )?;
+    fs::write(
+        "examples/vulcanus/lava.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "lava",
+            true,
+            &[],
+            &HashSet::new(),
+            &recipe_rates,
+        )?)?,
+    )?;
+    fs::write(
+        "examples/vulcanus/calcite.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "calcite",
+            true,
+            &[],
+            &HashSet::new(),
+            &recipe_rates,
+        )?)?,
+    )?;
+    fs::write(
+        "examples/vulcanus/molten-iron.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "molten-iron-from-lava",
+            true,
+            &["lava", "calcite"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>(),
+            &HashSet::new(),
+            &recipe_rates,
+        )?)?,
+    )?;
+    fs::write(
+        "examples/vulcanus/molten-copper.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "molten-copper-from-lava",
+            true,
+            &["lava", "calcite"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>(),
+            &HashSet::new(),
+            &recipe_rates,
+        )?)?,
+    )?;
     Ok(())
 }

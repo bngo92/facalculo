@@ -1,0 +1,15 @@
+{
+  "name": "molten-copper-from-lava",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "molten-copper-from-lava",
+            "modules": {}
+          }
+        }
+      ]
+    }
+  }
+}

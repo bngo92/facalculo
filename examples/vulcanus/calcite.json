@@ -1,0 +1,15 @@
+{
+  "name": "calcite",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "resource": {
+            "name": "calcite",
+            "structure": null
+          }
+        }
+      ]
+    }
+  }
+}
