@@ -340,31 +340,6 @@ impl RecipeRepository {
     }
 
     pub fn get_inputs(&self, module: &module::Module) -> HashSet<&str> {
-        let module::Module::User { structures } = module else {
-            return HashSet::new();
-        };
-        let mut inputs = HashSet::new();
-        let mut outputs = HashSet::new();
-        for structure in structures {
-            match structure {
-                Structure::Recipe { name, .. } => {
-                    inputs.extend(
-                        self.recipes[name]
-                            .ingredients
-                            .iter()
-                            .map(|i| i.name.as_str()),
-                    );
-                    outputs.extend(self.recipes[name].results.iter().map(|i| i.name.as_str()));
-                }
-                Structure::Resource { name, .. } => {
-                    outputs.insert(self.resources[name].key.as_str());
-                }
-            }
-        }
-        inputs.difference(&outputs).copied().collect()
-    }
-
-    pub fn get_resource_inputs(&self, module: &module::Module) -> HashSet<&str> {
         let structures = match module {
             module::Module::User { structures } => structures,
             module::Module::AdvancedOilProcessing {} => {
@@ -387,6 +362,7 @@ impl RecipeRepository {
         };
         let mut inputs = HashSet::new();
         let mut outputs = HashSet::new();
+        let mut resources = HashSet::new();
         for structure in structures {
             match structure {
                 Structure::Recipe { name, .. } => {
@@ -399,11 +375,19 @@ impl RecipeRepository {
                     outputs.extend(self.recipes[name].results.iter().map(|i| i.name.as_str()));
                 }
                 Structure::Resource { name, .. } => {
-                    inputs.insert(self.resources[name].key.as_str());
+                    resources.insert(self.resources[name].key.as_str());
                 }
             }
         }
-        inputs.difference(&outputs).copied().collect()
+        inputs
+            // Ignore inputs that are produced by another recipe
+            .difference(&outputs)
+            .copied()
+            .collect::<HashSet<_>>()
+            // Ignore inputs that are produced by a resource structure
+            .difference(&resources)
+            .copied()
+            .collect()
     }
 
     pub fn get_outputs(&self, module: &module::Module) -> HashSet<&str> {

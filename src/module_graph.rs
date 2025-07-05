@@ -47,16 +47,13 @@ impl ModuleGraph<'_> {
         let mut graph = GraphMap::<&str, (), Directed>::new();
         for (node, module) in modules {
             graph.add_node(node.as_str());
-            for input in recipe_rates.get_resource_inputs(&module.module) {
-                // Ignore resources
-                if node != input {
-                    if let Some(export_nodes) = outputs.get(input) {
-                        if let [export_node] = &export_nodes[..] {
-                            graph.add_edge(node.as_str(), export_node, ());
-                        } else {
-                            // TODO: support multiple exports
-                            return Err(format!("multiple modules are exporting {input}").into());
-                        }
+            for input in recipe_rates.get_inputs(&module.module) {
+                if let Some(export_nodes) = outputs.get(input) {
+                    if let [export_node] = &export_nodes[..] {
+                        graph.add_edge(node.as_str(), export_node, ());
+                    } else {
+                        // TODO: support multiple exports
+                        return Err(format!("multiple modules are exporting {input}").into());
                     }
                 }
             }
