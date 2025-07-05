@@ -41,7 +41,7 @@ pub enum Import {
 }
 
 impl<'a> Graph<'a> {
-    pub fn new(recipes: &'a RecipeRepository) -> Graph<'a> {
+    pub fn new(recipes: &'a RecipeRepository) -> Self {
         Graph {
             name: String::new(),
             graph: GraphType::new(),
@@ -59,7 +59,7 @@ impl<'a> Graph<'a> {
         required: &HashMap<String, Decimal>,
         recipes: &'a RecipeRepository,
         asm: i64,
-    ) -> Graph<'a> {
+    ) -> Self {
         let mut graph = Graph::new(recipes);
         graph.name = module.name.clone();
         match module.module {
@@ -581,7 +581,7 @@ impl<'a> Graph<'a> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Node {
     pub required: Option<Decimal>,
     pub name: String,
@@ -623,7 +623,7 @@ impl Display for Node {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Edge {
     pub required: Decimal,
     pub item: String,
@@ -641,9 +641,5 @@ impl Display for Edge {
 }
 
 fn trim(s: &str) -> String {
-    String::from_iter(
-        s.split('-')
-            .map(|s| s.chars().next().unwrap())
-            .collect::<Vec<_>>(),
-    )
+    String::from_iter(s.split('-').map(|s| s.chars().next().unwrap()))
 }

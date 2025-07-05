@@ -1,12 +1,12 @@
-use data::{Rate, RecipeRate, RecipeRepository};
-use module::{ModuleBuilder, NamedModule};
-use rust_decimal::Decimal;
-use std::collections::HashSet;
-
 pub mod data;
 pub mod graph;
 pub mod module;
 pub mod module_graph;
+
+use data::{Rate, RecipeRate, RecipeRepository};
+use module::{ModuleBuilder, NamedModule};
+use rust_decimal::Decimal;
+use std::collections::HashSet;
 
 pub fn generate(
     name: &str,

@@ -428,16 +428,16 @@ pub enum Rate<T> {
 }
 
 impl<T> Rate<T> {
-    pub fn rate(&self) -> &T {
+    pub const fn rate(&self) -> &T {
         match self {
-            Rate::Resource(rate) => rate,
-            Rate::Recipe(rate) => rate,
+            Self::Resource(rate) => rate,
+            Self::Recipe(rate) => rate,
         }
     }
 }
 
 impl<'a, T: Clone> Rate<&'a T> {
-    pub fn to_cow(self) -> Rate<Cow<'a, T>> {
+    pub const fn to_cow(self) -> Rate<Cow<'a, T>> {
         match self {
             Rate::Resource(rate) => Rate::Resource(Cow::Borrowed(rate)),
             Rate::Recipe(rate) => Rate::Recipe(Cow::Borrowed(rate)),

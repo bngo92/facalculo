@@ -15,7 +15,7 @@ pub struct ModuleBuilder<'a> {
 }
 
 impl<'a> ModuleBuilder<'_> {
-    pub fn new(
+    pub const fn new(
         name: String,
         repository: &'a RecipeRepository,
         imports: &'a [String],

@@ -27,10 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         serde_json::to_string_pretty(&facalculo::generate(
             "copper-plate",
             true,
-            &["copper-ore"]
-                .into_iter()
-                .map(ToOwned::to_owned)
-                .collect::<Vec<_>>(),
+            &["copper-ore".to_owned()],
             &HashSet::new(),
             &recipe_rates,
         )?)?,
@@ -50,10 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         serde_json::to_string_pretty(&facalculo::generate(
             "iron-plate",
             true,
-            &["iron-ore"]
-                .into_iter()
-                .map(ToOwned::to_owned)
-                .collect::<Vec<_>>(),
+            &["iron-ore".to_owned()],
             &HashSet::new(),
             &recipe_rates,
         )?)?,
@@ -67,10 +61,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into_iter()
                 .map(ToOwned::to_owned)
                 .collect::<Vec<_>>(),
-            &["iron-gear-wheel"]
-                .into_iter()
-                .map(ToOwned::to_owned)
-                .collect(),
+            &HashSet::from(["iron-gear-wheel".to_owned()]),
             &recipe_rates,
         )?)?,
     )?;
@@ -83,10 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into_iter()
                 .map(ToOwned::to_owned)
                 .collect::<Vec<_>>(),
-            &["copper-cable"]
-                .into_iter()
-                .map(ToOwned::to_owned)
-                .collect(),
+            &HashSet::from(["copper-cable".to_owned()]),
             &recipe_rates,
         )?)?,
     )?;
@@ -99,10 +87,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into_iter()
                 .map(ToOwned::to_owned)
                 .collect::<Vec<_>>(),
-            &["iron-gear-wheel"]
-                .into_iter()
-                .map(ToOwned::to_owned)
-                .collect(),
+            &HashSet::from(["iron-gear-wheel".to_owned()]),
             &recipe_rates,
         )?)?,
     )?;
@@ -111,10 +96,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         serde_json::to_string_pretty(&facalculo::generate(
             "steel-plate",
             true,
-            &["iron-plate"]
-                .into_iter()
-                .map(ToOwned::to_owned)
-                .collect::<Vec<_>>(),
+            &["iron-plate".to_owned()],
             &HashSet::new(),
             &recipe_rates,
         )?)?,
@@ -188,7 +170,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into_iter()
                 .map(ToOwned::to_owned)
                 .collect::<Vec<_>>(),
-            &[].into_iter().collect(),
+            &HashSet::new(),
             &recipe_rates,
         )?)?,
     )?;
@@ -201,10 +183,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into_iter()
                 .map(ToOwned::to_owned)
                 .collect::<Vec<_>>(),
-            &["copper-cable"]
-                .into_iter()
-                .map(ToOwned::to_owned)
-                .collect(),
+            &HashSet::from(["copper-cable".to_owned()]),
             &recipe_rates,
         )?)?,
     )?;
@@ -260,7 +239,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .into_iter()
             .map(ToOwned::to_owned)
             .collect::<Vec<_>>(),
-            &["iron-stick"].into_iter().map(ToOwned::to_owned).collect(),
+            &HashSet::from(["iron-stick".to_owned()]),
             &recipe_rates,
         )?)?,
     )?;
@@ -273,10 +252,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into_iter()
                 .map(ToOwned::to_owned)
                 .collect::<Vec<_>>(),
-            &["sulfuric-acid"]
-                .into_iter()
-                .map(ToOwned::to_owned)
-                .collect(),
+            &HashSet::from(["sulfuric-acid".to_owned()]),
             &recipe_rates,
         )?)?,
     )?;
@@ -302,10 +278,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into_iter()
                 .map(ToOwned::to_owned)
                 .collect::<Vec<_>>(),
-            &["low-density-structure"]
-                .into_iter()
-                .map(ToOwned::to_owned)
-                .collect(),
+            &HashSet::from(["low-density-structure".to_owned()]),
             &recipe_rates,
         )?)?,
     )?;
@@ -375,10 +348,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         serde_json::to_string_pretty(&facalculo::generate(
             "rocket-fuel",
             true,
-            &["light-oil"]
-                .into_iter()
-                .map(ToOwned::to_owned)
-                .collect::<Vec<_>>(),
+            &["light-oil".to_owned()],
             &["solid-fuel-from-light-oil", "rocket-fuel"]
                 .into_iter()
                 .map(ToOwned::to_owned)

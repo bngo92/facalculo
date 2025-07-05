@@ -238,7 +238,7 @@ impl ModuleGraph<'_> {
                         offsets[import_module.as_str()] + import,
                         node.index() + index,
                         Edge {
-                            item: (*o).to_owned(),
+                            item: (*o).clone(),
                             required: *required,
                         }
                     )?;

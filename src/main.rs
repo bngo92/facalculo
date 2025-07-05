@@ -80,22 +80,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             import,
             recipe,
         }) => {
-            let mut imports = Vec::new();
-            for import in &import {
-                if recipe_rates.get(import.as_str()).is_some()
-                    || data.fluid.contains_key(import.as_str())
-                {
-                    imports.push(import.clone());
-                } else {
-                    let module = serde_json::from_slice::<NamedModule>(&fs::read(import)?)?;
-                    imports.extend(
-                        recipe_rates
-                            .get_outputs(&module.module)
-                            .into_iter()
-                            .map(ToOwned::to_owned),
-                    );
-                }
-            }
             let recipes = recipe.into_iter().collect();
             let mut modules = Vec::new();
             let mut required = HashMap::new();
@@ -227,7 +211,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Uncomment when running on mac
             // Command::new("open").arg("out.svg").spawn()?;
         }
-    };
+    }
     Ok(())
 }
 
