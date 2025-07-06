@@ -267,7 +267,7 @@ mod tests {
                 (graph[ix].clone(), graph[i].clone(), graph[iy].clone())
             })
             .collect();
-        edges.sort_by_key(|(x, e, y)| (x.name.to_owned(), y.name.to_owned(), e.required));
+        edges.sort_by_key(|(x, e, y)| (x.name.clone(), y.name.clone(), e.required));
         let edges: Vec<_> = edges
             .into_iter()
             .map(|(x, e, y)| format!("{x} -> {e} -> {y}"))
@@ -310,7 +310,7 @@ mod tests {
             &recipe_rates,
             1,
         );
-        graph.group_nodes(Vec::new());
+        graph.group_nodes(&Vec::new());
         let graph = graph.graph;
         let mut nodes: Vec<_> = graph.node_weights().collect();
         nodes.sort_by_key(|n| (&n.name, n.required));
@@ -338,7 +338,7 @@ mod tests {
                 (graph[ix].clone(), graph[i].clone(), graph[iy].clone())
             })
             .collect();
-        edges.sort_by_key(|(x, e, y)| (x.name.to_owned(), y.name.to_owned(), e.required));
+        edges.sort_by_key(|(x, e, y)| (x.name.clone(), y.name.clone(), e.required));
         let edges: Vec<_> = edges
             .into_iter()
             .map(|(x, e, y)| format!("{x} -> {e} -> {y}"))
@@ -385,7 +385,7 @@ mod tests {
             &recipe_rates,
             1,
         );
-        graph.group_nodes(vec![String::from("copper-plate")]);
+        graph.group_nodes(&[String::from("copper-plate")]);
         let graph = graph.graph;
         let mut nodes: Vec<_> = graph.node_weights().collect();
         nodes.sort_by_key(|n| (&n.name, n.required));
@@ -414,7 +414,7 @@ mod tests {
                 (graph[ix].clone(), graph[i].clone(), graph[iy].clone())
             })
             .collect();
-        edges.sort_by_key(|(x, e, y)| (x.name.to_owned(), y.name.to_owned(), e.required));
+        edges.sort_by_key(|(x, e, y)| (x.name.clone(), y.name.clone(), e.required));
         let edges: Vec<_> = edges
             .into_iter()
             .map(|(x, e, y)| format!("{x} -> {e} -> {y}"))

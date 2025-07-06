@@ -62,7 +62,7 @@ impl<'a> Graph<'a> {
         asm: i64,
     ) -> Self {
         let mut graph = Graph::new(recipes);
-        graph.name = module.name.clone();
+        graph.name.clone_from(&module.name);
         match module.module {
             Module::User { structures } => {
                 let mut inputs = HashSet::new();
@@ -124,7 +124,7 @@ impl<'a> Graph<'a> {
                                 name.as_str(),
                                 (
                                     Rate::Resource(Cow::Owned(recipe)),
-                                    structure.clone(),
+                                    structure,
                                     mining_drill.mining_speed,
                                     Effect::default(),
                                 ),
@@ -132,8 +132,8 @@ impl<'a> Graph<'a> {
                         }
                     }
                 }
-                let output_set: HashSet<_> = outputs.keys().cloned().collect();
-                let exports: Vec<_> = output_set.difference(&inputs).cloned().collect();
+                let output_set: HashSet<_> = outputs.keys().copied().collect();
+                let exports: Vec<_> = output_set.difference(&inputs).copied().collect();
                 for item in &exports {
                     if let Some(required) = required.get(*item) {
                         graph.build_module_node(
@@ -153,7 +153,10 @@ impl<'a> Graph<'a> {
                     .map(|p| {
                         (
                             p,
-                            required.get(p).and_then(|d| d.to_f64()).unwrap_or_default(),
+                            required
+                                .get(p)
+                                .and_then(ToPrimitive::to_f64)
+                                .unwrap_or_default(),
                         )
                     })
                     .collect();
@@ -195,7 +198,7 @@ impl<'a> Graph<'a> {
                         ratio * recipes.assembling_machines[recipe.structure(asm)].energy();
                     let node = graph.graph.add_node(Node {
                         required: Some(ratio),
-                        name: recipe.key.to_owned(),
+                        name: recipe.key.clone(),
                         structure: Some(recipe.structure(asm).to_owned()),
                         energy,
                     });
@@ -217,25 +220,24 @@ impl<'a> Graph<'a> {
                             (node, Decimal::from_f64(required[output]).unwrap()),
                         );
                     }
-                    for edge in graph.get_ingredients(recipe, ratio, Decimal::ZERO) {
+                    for edge in get_ingredients(recipe, ratio, Decimal::ZERO) {
                         match last {
                             Some((last, item)) if edge.item == *item => {
                                 graph.graph.add_edge(node, last, edge);
                             }
                             _ => {
-                                let n = graph.imports.entry(edge.item.to_owned()).or_insert_with(
-                                    || {
+                                let n =
+                                    graph.imports.entry(edge.item.clone()).or_insert_with(|| {
                                         Import::Node(graph.graph.add_node(Node {
                                             required: Some(Decimal::ZERO),
-                                            name: edge.item.to_owned(),
+                                            name: edge.item.clone(),
                                             structure: None,
                                             energy: Decimal::ZERO,
                                         }))
-                                    },
-                                );
+                                    });
                                 let Import::Node(n) = *n else { unreachable!() };
                                 if let Some(required) = graph.graph[n].required.as_mut() {
-                                    *required += edge.required
+                                    *required += edge.required;
                                 }
                                 graph.graph.add_edge(node, n, edge);
                             }
@@ -419,7 +421,7 @@ impl<'a> Graph<'a> {
         for result in &recipe.rate().results {
             if exports.contains(&result.name.as_str()) {
                 self.outputs
-                    .insert(result.name.to_owned(), (node, ratio * result.rate));
+                    .insert(result.name.clone(), (node, ratio * result.rate));
             }
         }
         if let Rate::Resource(recipe) = recipe {
@@ -429,7 +431,7 @@ impl<'a> Graph<'a> {
             );
             return node;
         }
-        for edge in self.get_ingredients(recipe.rate(), ratio, productivity) {
+        for edge in get_ingredients(recipe.rate(), ratio, productivity) {
             if output_set.contains(edge.item.as_str()) {
                 let n = self.build_module_node(
                     outputs,
@@ -441,10 +443,10 @@ impl<'a> Graph<'a> {
                 );
                 self.graph.add_edge(node, n, edge);
             } else if import_nodes {
-                let n = self.imports.entry(edge.item.to_owned()).or_insert_with(|| {
+                let n = self.imports.entry(edge.item.clone()).or_insert_with(|| {
                     Import::Node(self.graph.add_node(Node {
                         required: Some(Decimal::ZERO),
-                        name: edge.item.to_owned(),
+                        name: edge.item.clone(),
                         structure: None,
                         energy: Decimal::ZERO,
                     }))
@@ -456,30 +458,14 @@ impl<'a> Graph<'a> {
                 self.graph.add_edge(node, n, edge);
             } else {
                 self.imports
-                    .insert(edge.item.to_owned(), Import::Import(node, edge.required));
+                    .insert(edge.item.clone(), Import::Import(node, edge.required));
             }
         }
         node
     }
 
-    fn get_ingredients(
-        &self,
-        recipe: &RecipeRate,
-        ratio: Decimal,
-        productivity: Decimal,
-    ) -> Vec<Edge> {
-        recipe
-            .ingredients
-            .iter()
-            .map(move |i| Edge {
-                required: ratio * i.rate / (Decimal::ONE + productivity),
-                item: i.name.to_owned(),
-            })
-            .collect()
-    }
-
     // TODO: we should not expand group nodes
-    pub fn group_nodes(&mut self, items: Vec<String>) {
+    pub fn group_nodes(&mut self, items: &[String]) {
         // Group items and their dependencies
         // Select one node for each item
         let mut selected_nodes: HashMap<_, NodeIndex> = HashMap::new();
@@ -492,7 +478,7 @@ impl<'a> Graph<'a> {
                 continue;
             }
             let Some(selected_node) = selected_nodes.get(&self.graph[node].name).copied() else {
-                selected_nodes.insert(self.graph[node].name.to_owned(), node);
+                selected_nodes.insert(self.graph[node].name.clone(), node);
                 continue;
             };
 
@@ -609,10 +595,10 @@ impl Node {
             self.name.clone()
         };
         if let (true, Some(structure)) = (details, &self.structure) {
-            let energy = if self.energy != Decimal::ZERO {
-                format!("\\n{} W", crate::round_string(self.energy))
-            } else {
+            let energy = if self.energy == Decimal::ZERO {
                 String::new()
+            } else {
+                format!("\\n{} W", crate::round_string(self.energy))
             };
             format!("{s}\\n{structure}{energy}")
         } else {
@@ -644,6 +630,17 @@ impl Display for Edge {
     }
 }
 
+fn get_ingredients(recipe: &RecipeRate, ratio: Decimal, productivity: Decimal) -> Vec<Edge> {
+    recipe
+        .ingredients
+        .iter()
+        .map(move |i| Edge {
+            required: ratio * i.rate / (Decimal::ONE + productivity),
+            item: i.name.clone(),
+        })
+        .collect()
+}
+
 fn trim(s: &str) -> String {
-    String::from_iter(s.split('-').map(|s| s.chars().next().unwrap()))
+    s.split('-').map(|s| s.chars().next().unwrap()).collect()
 }

@@ -135,11 +135,11 @@ impl AssemblingMachine {
         let (n, unit) = self
             .energy_usage
             .chars()
-            .partition::<Vec<_>, _>(|c| c.is_ascii_digit());
+            .partition::<Vec<_>, _>(char::is_ascii_digit);
         let mut n = Decimal::from_str(&n.into_iter().collect::<String>()).unwrap()
             * match unit.into_iter().collect::<String>().as_str() {
                 "kW" => Decimal::ONE_THOUSAND,
-                "mW" => Decimal::from(1000000),
+                "mW" => Decimal::from(1_000_000),
                 _ => unimplemented!(),
             };
         // https://forums.factorio.com/viewtopic.php?t=109602
@@ -277,8 +277,7 @@ pub enum Rate<T> {
 impl<T> Rate<T> {
     pub const fn rate(&self) -> &T {
         match self {
-            Self::Resource(rate) => rate,
-            Self::Recipe(rate) => rate,
+            Self::Resource(rate) | Self::Recipe(rate) => rate,
         }
     }
 }
@@ -321,20 +320,24 @@ impl RecipeRate {
             structure
         } else {
             match self.category {
-                None => asm,
-                Some(Category::AdvancedCrafting) => asm,
-                Some(Category::Chemistry) => "chemical-plant",
-                Some(Category::ChemistryOrCryogenics) => "chemical-plant",
-                Some(Category::Crafting) => asm,
-                Some(Category::CraftingWithFluid) => asm,
+                None
+                | Some(
+                    Category::AdvancedCrafting
+                    | Category::Crafting
+                    | Category::CraftingWithFluid
+                    | Category::Electronics
+                    | Category::ElectronicsWithFluid
+                    | Category::OrganicOrAssembling
+                    | Category::Pressing,
+                ) => asm,
+                Some(
+                    Category::Chemistry
+                    | Category::ChemistryOrCryogenics
+                    | Category::OrganicOrChemistry,
+                ) => "chemical-plant",
                 Some(Category::Crushing) => "crusher",
-                Some(Category::Electronics) => asm,
-                Some(Category::ElectronicsWithFluid) => asm,
                 Some(Category::Metallurgy) => "foundry",
                 Some(Category::OilProcessing) => "oil-refinery",
-                Some(Category::OrganicOrAssembling) => asm,
-                Some(Category::OrganicOrChemistry) => "chemical-plant",
-                Some(Category::Pressing) => asm,
                 Some(Category::RocketBuilding) => "rocket-silo",
                 Some(Category::Smelting) => "electric-furnace",
                 _ => todo!("{}", self.key),

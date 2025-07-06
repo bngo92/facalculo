@@ -216,7 +216,7 @@ impl ModuleGraph<'_> {
         }
         if show_energy
             && g.node_weights()
-                .map(|n| n.structure.is_some() as i32)
+                .map(|n| i32::from(n.structure.is_some()))
                 .sum::<i32>()
                 > 1
         {
@@ -250,7 +250,7 @@ impl ModuleGraph<'_> {
                     "{indent}0 -> {} [label = \"{}\" dir=back]",
                     node.index() + index,
                     Edge {
-                        item: (*o).to_owned(),
+                        item: (*o).clone(),
                         required,
                     }
                 )?;

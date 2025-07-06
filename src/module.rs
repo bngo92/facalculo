@@ -68,7 +68,7 @@ impl<'a> ModuleBuilder<'_> {
                             Err(format!(
                                 "Multiple recipes were found for {edge} for {}",
                                 recipe.key
-                            ))?
+                            ))?;
                         }
                         self.repository.get(recipes[0]).unwrap()
                     }
@@ -83,7 +83,7 @@ impl<'a> ModuleBuilder<'_> {
                     }
                     Rate::Resource(resource) => {
                         self.structures.push(Structure::Resource {
-                            name: resource.key.to_owned(),
+                            name: resource.key.clone(),
                             structure: None,
                         });
                     }
