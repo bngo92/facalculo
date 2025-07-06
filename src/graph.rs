@@ -2,11 +2,12 @@ use crate::{
     data::{Effect, IngredientRate, Rate, RecipeRate, RecipeRepository},
     module::{Module, NamedModule, Structure},
 };
+use core::fmt;
 use nalgebra::{Matrix3, Matrix3x1};
-use petgraph::{algo, graph::NodeIndex, stable_graph::StableGraph, visit::EdgeRef, Direction};
+use petgraph::{Direction, algo, graph::NodeIndex, stable_graph::StableGraph, visit::EdgeRef};
 use rust_decimal::{
-    prelude::{FromPrimitive, ToPrimitive},
     Decimal,
+    prelude::{FromPrimitive, ToPrimitive},
 };
 use std::{
     borrow::Cow,
@@ -163,8 +164,11 @@ impl<'a> Graph<'a> {
                     required["petroleum-gas"],
                 );
                 let solution = a.lu().solve(&advanced).unwrap();
-                let [advanced_oil_processing, heavy_oil_cracking, light_oil_cracking] =
-                    solution.as_slice()
+                let [
+                    advanced_oil_processing,
+                    heavy_oil_cracking,
+                    light_oil_cracking,
+                ] = *solution.as_slice()
                 else {
                     unimplemented!()
                 };
@@ -186,7 +190,7 @@ impl<'a> Graph<'a> {
                         light_oil_cracking,
                     ),
                 ] {
-                    let ratio = Decimal::from_f64(*ratio).unwrap();
+                    let ratio = Decimal::from_f64(ratio).unwrap();
                     let energy =
                         ratio * recipes.assembling_machines[recipe.structure(asm)].energy();
                     let node = graph.graph.add_node(Node {
@@ -229,11 +233,11 @@ impl<'a> Graph<'a> {
                                         }))
                                     },
                                 );
-                                let Import::Node(n) = n else { unreachable!() };
-                                if let Some(required) = graph.graph[*n].required.as_mut() {
+                                let Import::Node(n) = *n else { unreachable!() };
+                                if let Some(required) = graph.graph[n].required.as_mut() {
                                     *required += edge.required
                                 }
-                                graph.graph.add_edge(node, *n, edge);
+                                graph.graph.add_edge(node, n, edge);
                             }
                         }
                     }
@@ -445,11 +449,11 @@ impl<'a> Graph<'a> {
                         energy: Decimal::ZERO,
                     }))
                 });
-                let Import::Node(n) = n else { unreachable!() };
-                if let Some(required) = self.graph[*n].required.as_mut() {
+                let Import::Node(n) = *n else { unreachable!() };
+                if let Some(required) = self.graph[n].required.as_mut() {
                     *required += edge.required;
                 }
-                self.graph.add_edge(node, *n, edge);
+                self.graph.add_edge(node, n, edge);
             } else {
                 self.imports
                     .insert(edge.item.to_owned(), Import::Import(node, edge.required));
@@ -557,14 +561,14 @@ impl<'a> Graph<'a> {
                     .edges_directed(node, Direction::Outgoing)
                     .map(|e| (e.target(), e.id(), e.weight().clone()))
                     .collect();
-                edges.sort_by_key(|(target, _, _)| &self.graph[*target].name);
+                edges.sort_by_key(|&(target, _, _)| &self.graph[target].name);
                 let selected_node = selected_bfs.pop_front().unwrap();
                 let mut selected_edges: Vec<_> = self
                     .graph
                     .edges_directed(selected_node, Direction::Outgoing)
                     .map(|e| (e.target(), e.id()))
                     .collect();
-                selected_edges.sort_by_key(|(target, _)| &self.graph[*target].name);
+                selected_edges.sort_by_key(|&(target, _)| &self.graph[target].name);
                 for (edge, selected_edge) in edges.into_iter().zip(selected_edges.into_iter()) {
                     self.graph[selected_edge.1].required += edge.2.required;
                     self.graph.remove_edge(edge.1);
@@ -602,7 +606,7 @@ impl Node {
         let s = if let Some(required) = self.required {
             format!("{} {}", crate::round_string(required), self.name)
         } else {
-            self.name.to_string()
+            self.name.clone()
         };
         if let (true, Some(structure)) = (details, &self.structure) {
             let energy = if self.energy != Decimal::ZERO {
@@ -618,7 +622,7 @@ impl Node {
 }
 
 impl Display for Node {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.to_string(false))
     }
 }
@@ -630,7 +634,7 @@ pub struct Edge {
 }
 
 impl Display for Edge {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{} {}",

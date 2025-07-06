@@ -1,7 +1,8 @@
 use crate::{
-    data::{RecipeRate, RecipeRepository, RepositoryOption},
     Rate,
+    data::{RecipeRate, RecipeRepository, RepositoryOption},
 };
+use core::error::Error;
 use rust_decimal::Decimal;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -32,7 +33,7 @@ impl<'a> ModuleBuilder<'_> {
 
     pub fn add(&mut self, key: &str, expand: bool) {
         let rate = &self.repository.get(key).unwrap();
-        match rate {
+        match *rate {
             Rate::Recipe(recipe) => {
                 self.structures.push(Structure::Recipe {
                     name: recipe.key.clone(),
@@ -51,7 +52,7 @@ impl<'a> ModuleBuilder<'_> {
         }
     }
 
-    fn add_node(&mut self, recipe: &RecipeRate) -> Result<(), Box<dyn std::error::Error>> {
+    fn add_node(&mut self, recipe: &RecipeRate) -> Result<(), Box<dyn Error>> {
         for edge in &recipe.ingredients {
             let edge = &edge.name;
             if !self.imports.contains(edge) {

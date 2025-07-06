@@ -3,6 +3,7 @@ pub mod graph;
 pub mod module;
 pub mod module_graph;
 
+use core::error::Error;
 use data::{Rate, RecipeRate, RecipeRepository};
 use module::{ModuleBuilder, NamedModule};
 use rust_decimal::Decimal;
@@ -14,7 +15,7 @@ pub fn generate(
     imports: &[String],
     recipes: &HashSet<String>,
     recipe_rates: &RecipeRepository,
-) -> Result<NamedModule, Box<dyn std::error::Error>> {
+) -> Result<NamedModule, Box<dyn Error>> {
     let mut recipes = recipes.clone();
     recipes.insert(name.to_owned());
     let mut module = ModuleBuilder::new(name.to_owned(), recipe_rates, imports, &recipes);

@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand, ValueEnum};
+use core::error::Error;
 use facalculo::{
     data::{self, Data},
     graph::Graph,
@@ -66,7 +67,7 @@ enum Commands {
     },
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
     let b = include_bytes!("data-raw-dump.json");
     let data: Data = serde_json::from_slice(b)?;
@@ -115,10 +116,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 exec(
                     g,
                     &mut PrinterContext::default(),
-                    vec![
-                        Format::Svg.into(),
-                        CommandArg::Output("out.svg".to_string()),
-                    ],
+                    vec![Format::Svg.into(), CommandArg::Output("out.svg".to_owned())],
                 )?;
                 Command::new("open").arg("out.svg").spawn()?;
             }
@@ -154,7 +152,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Parse arguments
             let modules = files
                 .into_iter()
-                .map(|f| -> Result<_, Box<dyn std::error::Error>> {
+                .map(|f| -> Result<_, Box<dyn Error>> {
                     let module: NamedModule = serde_json::from_slice(&fs::read(f)?)?;
                     Ok((module.name.clone(), module))
                 })
@@ -162,13 +160,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut rates = items
                 .into_iter()
                 .map(|items| {
-                    if let [item, rate] = &items[..] {
+                    if let [item, rate] = &*items {
                         Ok((item.clone(), rate.parse()?))
                     } else {
                         unimplemented!()
                     }
                 })
-                .collect::<Result<HashMap<_, Decimal>, Box<dyn std::error::Error>>>()?;
+                .collect::<Result<HashMap<_, Decimal>, Box<dyn Error>>>()?;
 
             let production = if let Some(production) = production {
                 let (rate, unit) = production.split_at(production.len() - 1);

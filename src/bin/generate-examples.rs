@@ -1,3 +1,4 @@
+use core::error::Error;
 use std::{
     collections::{HashMap, HashSet},
     fs,
@@ -8,7 +9,7 @@ use facalculo::{
     module::{Module, NamedModule},
 };
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     let b = include_bytes!("../data-raw-dump.json");
     let data: Data = serde_json::from_slice(b)?;
     let recipe_rates = data::calculate_rates(&data);

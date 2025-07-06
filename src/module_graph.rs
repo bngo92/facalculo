@@ -3,10 +3,11 @@ use crate::{
     graph::{Edge, Graph, Import},
     module::NamedModule,
 };
+use core::error::Error;
 use petgraph::{
+    Directed, algo,
     prelude::GraphMap,
     visit::{EdgeRef, IntoEdgeReferences, IntoNodeReferences, NodeIndexable, NodeRef},
-    Directed,
 };
 use rust_decimal::Decimal;
 use std::{
@@ -32,7 +33,7 @@ impl ModuleGraph<'_> {
         production: Option<Decimal>,
         energy: bool,
         asm: i64,
-    ) -> Result<ModuleGraph<'a>, Box<dyn std::error::Error>> {
+    ) -> Result<ModuleGraph<'a>, Box<dyn Error>> {
         // Sort modules so outputs are processed before inputs
         let mut outputs: HashMap<_, Vec<_>> = HashMap::new();
         let mut active_set = HashSet::new();
@@ -49,7 +50,7 @@ impl ModuleGraph<'_> {
             graph.add_node(node.as_str());
             for input in recipe_rates.get_inputs(&module.module) {
                 if let Some(export_nodes) = outputs.get(input) {
-                    if let [export_node] = &export_nodes[..] {
+                    if let [export_node] = &**export_nodes {
                         graph.add_edge(node.as_str(), export_node, ());
                     } else {
                         // TODO: support multiple exports
@@ -58,7 +59,7 @@ impl ModuleGraph<'_> {
                 }
             }
         }
-        let module_order: Vec<_> = petgraph::algo::toposort(&graph, None)
+        let module_order: Vec<_> = algo::toposort(&graph, None)
             .unwrap()
             .into_iter()
             .map(ToOwned::to_owned)
@@ -76,10 +77,10 @@ impl ModuleGraph<'_> {
             let graph = Graph::from_module(modules[&module].clone(), required, recipe_rates, asm);
             for (import, node) in &graph.imports {
                 // We do not create import nodes for science packs
-                let (import_required, node) = match node {
+                let (import_required, node) = match *node {
                     Import::Resource(..) => continue,
-                    Import::Node(node) => (graph.graph[*node].required.unwrap(), node),
-                    Import::Import(node, required) => (*required, node),
+                    Import::Node(node) => (graph.graph[node].required.unwrap(), node),
+                    Import::Import(node, required) => (required, node),
                 };
                 *required.entry(import.clone()).or_default() += import_required;
                 imports.entry(import.clone()).or_default().push((
@@ -118,7 +119,7 @@ impl ModuleGraph<'_> {
         })
     }
 
-    pub fn render(&mut self, details: bool) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn render(&mut self, details: bool) -> Result<String, Box<dyn Error>> {
         let mut f = String::new();
         writeln!(f, "digraph {{")?;
         writeln!(f, "{INDENT}0 [label = \"outputs\"]")?;
@@ -185,7 +186,7 @@ impl ModuleGraph<'_> {
         offsets: &HashMap<&str, usize>,
         details: bool,
         show_energy: bool,
-    ) -> Result<usize, Box<dyn std::error::Error>> {
+    ) -> Result<usize, Box<dyn Error>> {
         let index = offsets[graph.name.as_str()];
         let mut additional_nodes = 0;
         let g = &graph.graph;
@@ -229,7 +230,7 @@ impl ModuleGraph<'_> {
             additional_nodes += 1;
         }
         writeln!(f, "{indent}}}")?;
-        for (o, (node, required)) in &graph.outputs {
+        for (o, &(node, required)) in &graph.outputs {
             if let Some(dependencies) = self.imports.get(o.as_str()) {
                 for (import_module, import, required) in dependencies {
                     writeln!(
@@ -250,19 +251,19 @@ impl ModuleGraph<'_> {
                     node.index() + index,
                     Edge {
                         item: (*o).to_owned(),
-                        required: *required,
+                        required,
                     }
                 )?;
             }
         }
         for (import, node) in &graph.imports {
-            let (node, required) = match node {
-                Import::Resource(node, required) => (node, *required),
+            let (node, required) = match *node {
+                Import::Resource(node, required) => (node, required),
                 Import::Node(node) if !self.used_imports.contains(import) => {
-                    (node, g[*node].required.unwrap())
+                    (node, g[node].required.unwrap())
                 }
                 Import::Import(node, required) if !self.used_imports.contains(import) => {
-                    (node, *required)
+                    (node, required)
                 }
                 _ => continue,
             };
