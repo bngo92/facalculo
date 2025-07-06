@@ -230,8 +230,11 @@ impl ModuleGraph<'_> {
             additional_nodes += 1;
         }
         writeln!(f, "{indent}}}")?;
+
+        // Connect output edges
         for (o, &(node, required)) in &graph.outputs {
             if let Some(dependencies) = self.imports.get(o.as_str()) {
+                // If another module depends on this module, connect the nodes
                 for (import_module, import, required) in dependencies {
                     writeln!(
                         f,
@@ -245,6 +248,7 @@ impl ModuleGraph<'_> {
                     )?;
                 }
             } else {
+                // Otherwise export to output node
                 writeln!(
                     f,
                     "{indent}0 -> {} [label = \"{}\" dir=back]",
@@ -256,6 +260,8 @@ impl ModuleGraph<'_> {
                 )?;
             }
         }
+
+        // Import from input node if there are no modules that are exporting the item
         for (import, node) in &graph.imports {
             let (node, required) = match *node {
                 Import::Resource(node, required) => (node, required),
@@ -277,6 +283,7 @@ impl ModuleGraph<'_> {
                 }
             )?;
         }
+
         for edge in g.edge_references() {
             writeln!(
                 f,
