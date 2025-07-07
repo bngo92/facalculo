@@ -138,6 +138,63 @@ impl ModuleGraph<'_> {
                 !self.energy.is_empty(),
             )?;
         }
+
+        for graph in &self.graphs {
+            let index = offsets[graph.name.as_str()];
+            // Connect output edges
+            for (o, &(node, required)) in &graph.outputs {
+                if let Some(dependencies) = self.imports.get(o.as_str()) {
+                    // If another module depends on this module, connect the nodes
+                    for (import_module, import, required) in dependencies {
+                        writeln!(
+                            f,
+                            "{INDENT}{} -> {} [label = \"{}\" dir=back]",
+                            offsets[import_module.as_str()] + import,
+                            node.index() + index,
+                            Edge {
+                                item: (*o).clone(),
+                                required: *required,
+                            }
+                        )?;
+                    }
+                } else {
+                    // Otherwise export to output node
+                    writeln!(
+                        f,
+                        "{INDENT}0 -> {} [label = \"{}\" dir=back]",
+                        node.index() + index,
+                        Edge {
+                            item: (*o).clone(),
+                            required,
+                        }
+                    )?;
+                }
+            }
+
+            // Import from input node if there are no modules that are exporting the item
+            for (import, node) in &graph.imports {
+                let (node, required) = match *node {
+                    Import::Resource(node, required) => (node, required),
+                    Import::Node(node) if !self.used_imports.contains(import) => {
+                        (node, graph.graph[node].required.unwrap())
+                    }
+                    Import::Import(node, required) if !self.used_imports.contains(import) => {
+                        (node, required)
+                    }
+                    _ => continue,
+                };
+                writeln!(
+                    f,
+                    "{INDENT}{} -> 1 [label = \"{}\" dir=back]",
+                    node.index() + index,
+                    Edge {
+                        item: import.to_owned(),
+                        required,
+                    }
+                )?;
+            }
+        }
+
         if !self.production.is_empty() {
             self.production.sort_by_key(|t| -t.1);
             let production: Vec<_> = self
@@ -230,60 +287,6 @@ impl ModuleGraph<'_> {
             additional_nodes += 1;
         }
         writeln!(f, "{indent}}}")?;
-
-        // Connect output edges
-        for (o, &(node, required)) in &graph.outputs {
-            if let Some(dependencies) = self.imports.get(o.as_str()) {
-                // If another module depends on this module, connect the nodes
-                for (import_module, import, required) in dependencies {
-                    writeln!(
-                        f,
-                        "{indent}{} -> {} [label = \"{}\" dir=back]",
-                        offsets[import_module.as_str()] + import,
-                        node.index() + index,
-                        Edge {
-                            item: (*o).clone(),
-                            required: *required,
-                        }
-                    )?;
-                }
-            } else {
-                // Otherwise export to output node
-                writeln!(
-                    f,
-                    "{indent}0 -> {} [label = \"{}\" dir=back]",
-                    node.index() + index,
-                    Edge {
-                        item: (*o).clone(),
-                        required,
-                    }
-                )?;
-            }
-        }
-
-        // Import from input node if there are no modules that are exporting the item
-        for (import, node) in &graph.imports {
-            let (node, required) = match *node {
-                Import::Resource(node, required) => (node, required),
-                Import::Node(node) if !self.used_imports.contains(import) => {
-                    (node, g[node].required.unwrap())
-                }
-                Import::Import(node, required) if !self.used_imports.contains(import) => {
-                    (node, required)
-                }
-                _ => continue,
-            };
-            writeln!(
-                f,
-                "{indent}{} -> 1 [label = \"{}\" dir=back]",
-                node.index() + index,
-                Edge {
-                    item: import.to_owned(),
-                    required,
-                }
-            )?;
-        }
-
         for edge in g.edge_references() {
             writeln!(
                 f,
