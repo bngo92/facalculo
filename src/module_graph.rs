@@ -19,7 +19,7 @@ static INDENT: &str = "    ";
 
 pub struct ModuleGraph<'a> {
     pub graphs: Vec<Graph<'a>>,
-    pub imports: HashMap<String, Vec<(String, usize, Decimal)>>,
+    pub dependencies: HashMap<String, Dependency>,
     pub used_imports: HashSet<String>,
     pub production: Vec<(String, Decimal)>,
     pub energy: Vec<(String, i32, Decimal)>,
@@ -65,7 +65,7 @@ impl ModuleGraph<'_> {
             .map(ToOwned::to_owned)
             .collect();
         let mut graphs = Vec::new();
-        let mut imports: HashMap<String, Vec<(String, usize, Decimal)>> = HashMap::new();
+        let mut imports: HashMap<String, Dependency> = HashMap::new();
         let mut total_production = HashMap::new();
         let mut structure_count = HashMap::new();
         let mut total_energy = HashMap::new();
@@ -83,11 +83,15 @@ impl ModuleGraph<'_> {
                     Import::Import(node, required) => (required, node),
                 };
                 *required.entry(import.clone()).or_default() += import_required;
-                imports.entry(import.clone()).or_default().push((
-                    graph.name.clone(),
-                    node.index(),
-                    import_required,
-                ));
+                imports
+                    .entry(import.clone())
+                    .or_default()
+                    .demand
+                    .push(DependencyEdge {
+                        module: graph.name.clone(),
+                        node: node.index(),
+                        required: import_required,
+                    });
             }
             if let Some(production) = production {
                 for (item, rate) in &graph.production {
@@ -106,7 +110,7 @@ impl ModuleGraph<'_> {
         }
         Ok(ModuleGraph {
             graphs,
-            imports,
+            dependencies: imports,
             used_imports: outputs.into_keys().map(ToOwned::to_owned).collect(),
             production: total_production.into_iter().collect(),
             energy: structure_count
@@ -143,17 +147,17 @@ impl ModuleGraph<'_> {
             let index = offsets[graph.name.as_str()];
             // Connect output edges
             for (o, &(node, required)) in &graph.outputs {
-                if let Some(dependencies) = self.imports.get(o.as_str()) {
+                if let Some(dependencies) = self.dependencies.get(o.as_str()) {
                     // If another module depends on this module, connect the nodes
-                    for (import_module, import, required) in dependencies {
+                    for dependency in &dependencies.demand {
                         writeln!(
                             f,
                             "{INDENT}{} -> {} [label = \"{}\" dir=back]",
-                            offsets[import_module.as_str()] + import,
+                            offsets[dependency.module.as_str()] + dependency.node,
                             node.index() + index,
                             Edge {
                                 item: (*o).clone(),
-                                required: *required,
+                                required: dependency.required,
                             }
                         )?;
                     }
@@ -298,4 +302,15 @@ impl ModuleGraph<'_> {
         }
         Ok(g.node_count() + additional_nodes)
     }
+}
+
+#[derive(Default)]
+pub struct Dependency {
+    demand: Vec<DependencyEdge>,
+}
+
+pub struct DependencyEdge {
+    module: String,
+    node: usize,
+    required: Decimal,
 }

@@ -105,7 +105,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .collect();
             let mut graph = ModuleGraph {
                 graphs,
-                imports: HashMap::new(),
+                dependencies: HashMap::new(),
                 used_imports: HashSet::new(),
                 production: Vec::new(),
                 energy: Vec::new(),
