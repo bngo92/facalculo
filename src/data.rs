@@ -4,6 +4,7 @@ use serde_derive::Deserialize;
 use serde_json::Value;
 use std::{
     borrow::Cow,
+    cmp::Ordering,
     collections::{HashMap, HashSet},
     str::FromStr,
 };
@@ -76,6 +77,7 @@ struct Ingredient {
 struct RecipeResult {
     amount: Decimal,
     name: String,
+    probability: Option<Decimal>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -394,37 +396,68 @@ pub fn calculate_rates(data: &Data) -> RecipeRepository {
             ) {
                 return None;
             }
-            let ingredients: Vec<_> = ingredients
+            let mut ingredients: HashMap<_, _> = ingredients
                 .iter()
                 .cloned()
                 .filter_map(|i| {
                     let i: Ingredient = serde_json::from_value(i).ok()?;
-                    Some(IngredientRate {
-                        rate: i.amount / energy_required,
-                        name: i.name,
-                    })
+                    Some((i.name, i.amount))
                 })
                 .collect();
+            let mut results: HashMap<_, _> = results
+                .iter()
+                .cloned()
+                .filter_map(|i| {
+                    let i: RecipeResult = serde_json::from_value(i).ok()?;
+                    Some((i.name, i.probability.unwrap_or(Decimal::ONE) * i.amount))
+                })
+                .collect();
+            let mut ingredients_to_delete = Vec::new();
+            let mut results_to_delete = Vec::new();
+            for (name, ingredient) in &mut ingredients {
+                if let Some(result) = results.get_mut(name) {
+                    match ingredient.cmp(&result) {
+                        Ordering::Less => {
+                            ingredients_to_delete.push(name.clone());
+                            *result -= *ingredient;
+                        }
+                        Ordering::Greater => {
+                            results_to_delete.push(name);
+                            *ingredient -= *result;
+                        }
+                        Ordering::Equal => unimplemented!(),
+                    }
+                }
+            }
             let rate = RecipeRate {
                 category,
                 key: (*key).to_owned(),
                 results: results
-                    .iter()
-                    .cloned()
-                    .filter_map(|i| {
-                        let i: RecipeResult = serde_json::from_value(i).ok()?;
-                        // Ignore catalysts for now
-                        if ingredients.iter().any(|r| r.name == i.name) {
+                    .into_iter()
+                    .filter_map(|(name, amount)| {
+                        if results_to_delete.contains(&&name) {
                             None
                         } else {
                             Some(IngredientRate {
-                                rate: i.amount / energy_required,
-                                name: i.name,
+                                rate: amount / energy_required,
+                                name,
                             })
                         }
                     })
                     .collect(),
-                ingredients,
+                ingredients: ingredients
+                    .into_iter()
+                    .filter_map(|(name, amount)| {
+                        if ingredients_to_delete.contains(&name) {
+                            None
+                        } else {
+                            Some(IngredientRate {
+                                rate: amount / energy_required,
+                                name,
+                            })
+                        }
+                    })
+                    .collect(),
             };
             Some(((*key).to_owned(), rate))
         })
