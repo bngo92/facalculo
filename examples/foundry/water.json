@@ -1,12 +1,12 @@
 {
-  "name": "calcite",
+  "name": "water",
   "module": {
     "user": {
       "structures": [
         {
           "resource": {
-            "name": "calcite",
-            "structure": "big-mining-drill"
+            "name": "water",
+            "structure": null
           }
         }
       ]
