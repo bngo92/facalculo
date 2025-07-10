@@ -148,9 +148,14 @@ impl<'a> Graph<'a> {
                 }
             }
             Module::AdvancedOilProcessing {} => {
-                let required: HashMap<_, _> = ["heavy-oil", "light-oil", "petroleum-gas"]
+                let process_recipes = [
+                    ("heavy-oil", "advanced-oil-processing"),
+                    ("light-oil", "heavy-oil-cracking"),
+                    ("petroleum-gas", "light-oil-cracking"),
+                ];
+                let required: HashMap<_, _> = process_recipes
                     .into_iter()
-                    .map(|p| {
+                    .map(|(p, _)| {
                         (
                             p,
                             required
@@ -161,39 +166,14 @@ impl<'a> Graph<'a> {
                     })
                     .collect();
                 let a = Matrix3::from_iterator(vec![5., 9., 11., -20., 15., 0., 0., -15., 10.]);
-                let advanced = Matrix3x1::new(
-                    required["heavy-oil"],
-                    required["light-oil"],
-                    required["petroleum-gas"],
-                );
+                let advanced =
+                    Matrix3x1::from_iterator(process_recipes.iter().map(|(r, _)| required[r]));
                 let solution = a.lu().solve(&advanced).unwrap();
-                let [
-                    advanced_oil_processing,
-                    heavy_oil_cracking,
-                    light_oil_cracking,
-                ] = *solution.as_slice()
-                else {
-                    unimplemented!()
-                };
                 let mut last: Option<(NodeIndex, &str)> = None;
-                for (output, recipe, ratio) in [
-                    (
-                        "heavy-oil",
-                        recipes.get("advanced-oil-processing").unwrap().rate(),
-                        advanced_oil_processing,
-                    ),
-                    (
-                        "light-oil",
-                        recipes.get("heavy-oil-cracking").unwrap().rate(),
-                        heavy_oil_cracking,
-                    ),
-                    (
-                        "petroleum-gas",
-                        recipes.get("light-oil-cracking").unwrap().rate(),
-                        light_oil_cracking,
-                    ),
-                ] {
-                    let ratio = Decimal::from_f64(ratio).unwrap();
+                for (i, (output, recipe)) in process_recipes.into_iter().enumerate() {
+                    let recipe = recipes.get(recipe).unwrap();
+                    let recipe = recipe.rate();
+                    let ratio = Decimal::from_f64(solution[i]).unwrap();
                     let energy =
                         ratio * recipes.assembling_machines[recipe.structure(asm)].energy();
                     let node = graph.graph.add_node(Node {
