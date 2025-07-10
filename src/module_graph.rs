@@ -1,6 +1,6 @@
 use crate::{
     data::RecipeRepository,
-    graph::{Edge, Graph, Import, Node},
+    graph::{Edge, Graph, Import},
     module::NamedModule,
 };
 use core::error::Error;
