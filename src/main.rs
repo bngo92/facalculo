@@ -12,11 +12,7 @@ use graphviz_rust::{
     printer::PrinterContext,
 };
 use rust_decimal::Decimal;
-use std::{
-    collections::{HashMap, HashSet},
-    fs,
-    process::Command,
-};
+use std::{collections::HashMap, fs, process::Command};
 
 #[derive(Parser, Debug)]
 #[command()]
@@ -106,7 +102,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut graph = ModuleGraph {
                 graphs,
                 dependencies: HashMap::new(),
-                used_imports: HashSet::new(),
+                resource_imports: HashMap::new(),
                 production: Vec::new(),
                 energy: Vec::new(),
             };
@@ -218,6 +214,7 @@ mod tests {
     use super::*;
     use facalculo::module::ModuleBuilder;
     use rust_decimal::prelude::FromPrimitive;
+    use std::collections::HashSet;
 
     #[test]
     fn advanced_circuit() {

@@ -1,6 +1,6 @@
 use crate::{
     data::RecipeRepository,
-    graph::{Edge, Graph, Import},
+    graph::{Edge, Graph, Import, Node},
     module::NamedModule,
 };
 use core::error::Error;
@@ -20,7 +20,7 @@ static INDENT: &str = "    ";
 pub struct ModuleGraph<'a> {
     pub graphs: Vec<Graph<'a>>,
     pub dependencies: HashMap<String, Dependency>,
-    pub used_imports: HashSet<String>,
+    pub resource_imports: HashMap<String, Vec<DependencyEdge>>,
     pub production: Vec<(String, Decimal)>,
     pub energy: Vec<(String, i32, Decimal)>,
 }
@@ -65,6 +65,7 @@ impl ModuleGraph<'_> {
             .map(ToOwned::to_owned)
             .collect();
         let mut graphs = Vec::new();
+        let mut resource_imports: HashMap<String, Vec<DependencyEdge>> = HashMap::new();
         let mut imports: HashMap<String, Dependency> = HashMap::new();
         let mut total_production = HashMap::new();
         let mut structure_count = HashMap::new();
@@ -78,7 +79,17 @@ impl ModuleGraph<'_> {
             for (import, node) in &graph.imports {
                 // We do not create import nodes for science packs
                 let (import_required, node) = match *node {
-                    Import::Resource(..) => continue,
+                    Import::Resource(node, required) => {
+                        resource_imports
+                            .entry(import.clone())
+                            .or_default()
+                            .push(DependencyEdge {
+                                module: graph.name.clone(),
+                                node: node.index(),
+                                required,
+                            });
+                        continue;
+                    }
                     Import::Node(node) => (graph.graph[node].required.unwrap(), node),
                     Import::Import(node, required) => (required, node),
                 };
@@ -91,6 +102,17 @@ impl ModuleGraph<'_> {
                         module: graph.name.clone(),
                         node: node.index(),
                         required: import_required,
+                    });
+            }
+            for (import, (node, required)) in &graph.outputs {
+                imports
+                    .entry(import.clone())
+                    .or_default()
+                    .supply
+                    .push(DependencyEdge {
+                        module: graph.name.clone(),
+                        node: node.index(),
+                        required: *required,
                     });
             }
             if let Some(production) = production {
@@ -111,7 +133,7 @@ impl ModuleGraph<'_> {
         Ok(ModuleGraph {
             graphs,
             dependencies: imports,
-            used_imports: outputs.into_keys().map(ToOwned::to_owned).collect(),
+            resource_imports,
             production: total_production.into_iter().collect(),
             energy: structure_count
                 .into_iter()
@@ -143,57 +165,60 @@ impl ModuleGraph<'_> {
             )?;
         }
 
-        for graph in &self.graphs {
-            let index = offsets[graph.name.as_str()];
-            // Connect output edges
-            for (o, &(node, required)) in &graph.outputs {
-                if let Some(dependencies) = self.dependencies.get(o.as_str()) {
-                    // If another module depends on this module, connect the nodes
-                    for dependency in &dependencies.demand {
-                        writeln!(
-                            f,
-                            "{INDENT}{} -> {} [label = \"{}\" dir=back]",
-                            offsets[dependency.module.as_str()] + dependency.node,
-                            node.index() + index,
-                            Edge {
-                                item: (*o).clone(),
-                                required: dependency.required,
-                            }
-                        )?;
-                    }
-                } else {
-                    // Otherwise export to output node
+        for (item, dependencies) in &self.dependencies {
+            if dependencies.demand.is_empty() {
+                // Export requested and unconsumed outputs to output node
+                for edge in &dependencies.supply {
                     writeln!(
                         f,
                         "{INDENT}0 -> {} [label = \"{}\" dir=back]",
-                        node.index() + index,
+                        offsets[edge.module.as_str()] + edge.node,
                         Edge {
-                            item: (*o).clone(),
-                            required,
+                            item: item.clone(),
+                            required: edge.required,
                         }
                     )?;
                 }
+            } else if dependencies.supply.is_empty() {
+                // Import from input node if there are no modules that are exporting the item
+                for edge in &dependencies.demand {
+                    writeln!(
+                        f,
+                        "{INDENT}{} -> 1 [label = \"{}\" dir=back]",
+                        offsets[edge.module.as_str()] + edge.node,
+                        Edge {
+                            item: item.clone(),
+                            required: edge.required,
+                        }
+                    )?;
+                }
+            } else {
+                // If another module depends on this module, connect the nodes
+                for e1 in &dependencies.demand {
+                    for e2 in &dependencies.supply {
+                        writeln!(
+                            f,
+                            "{INDENT}{} -> {} [label = \"{}\" dir=back]",
+                            offsets[e1.module.as_str()] + e1.node,
+                            offsets[e2.module.as_str()] + e2.node,
+                            Edge {
+                                item: item.clone(),
+                                required: e1.required.min(e2.required),
+                            }
+                        )?;
+                    }
+                }
             }
-
-            // Import from input node if there are no modules that are exporting the item
-            for (import, node) in &graph.imports {
-                let (node, required) = match *node {
-                    Import::Resource(node, required) => (node, required),
-                    Import::Node(node) if !self.used_imports.contains(import) => {
-                        (node, graph.graph[node].required.unwrap())
-                    }
-                    Import::Import(node, required) if !self.used_imports.contains(import) => {
-                        (node, required)
-                    }
-                    _ => continue,
-                };
+        }
+        for (item, dependencies) in &self.resource_imports {
+            for import in dependencies {
                 writeln!(
                     f,
                     "{INDENT}{} -> 1 [label = \"{}\" dir=back]",
-                    node.index() + index,
+                    offsets[import.module.as_str()] + import.node,
                     Edge {
-                        item: import.to_owned(),
-                        required,
+                        item: item.clone(),
+                        required: import.required,
                     }
                 )?;
             }
@@ -307,6 +332,7 @@ impl ModuleGraph<'_> {
 #[derive(Default)]
 pub struct Dependency {
     demand: Vec<DependencyEdge>,
+    supply: Vec<DependencyEdge>,
 }
 
 pub struct DependencyEdge {
