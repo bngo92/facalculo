@@ -9,7 +9,7 @@ use std::{
     str::FromStr,
 };
 
-use crate::module::{self, Structure};
+use crate::module::{self, OilProcessing, Structure};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -191,8 +191,15 @@ impl RecipeRepository {
     pub fn get_inputs(&self, module: &module::Module) -> HashSet<&str> {
         let structures = match module {
             module::Module::User { structures } => structures,
-            module::Module::AdvancedOilProcessing {} => {
+            module::Module::OilProcessing {
+                process: OilProcessing::AdvancedOilProcessing,
+            } => {
                 return HashSet::from(["water", "crude-oil"]);
+            }
+            module::Module::OilProcessing {
+                process: OilProcessing::CoalLiquefaction,
+            } => {
+                return HashSet::from(["coal", "steam"]);
             }
             module::Module::Science { .. } => {
                 return HashSet::from([
@@ -242,7 +249,7 @@ impl RecipeRepository {
     pub fn get_outputs(&self, module: &module::Module) -> HashSet<&str> {
         let structures = match module {
             module::Module::User { structures } => structures,
-            module::Module::AdvancedOilProcessing {} => {
+            module::Module::OilProcessing { .. } => {
                 return HashSet::from(["heavy-oil", "light-oil", "petroleum-gas"]);
             }
             module::Module::Science { .. } => return HashSet::from(["science"]),

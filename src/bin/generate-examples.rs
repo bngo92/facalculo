@@ -6,7 +6,7 @@ use std::{
 
 use facalculo::{
     data::{self, Data},
-    module::{Module, NamedModule},
+    module::{Module, NamedModule, OilProcessing},
 };
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -156,10 +156,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         )?)?,
     )?;
     fs::write(
-        "examples/advanced-oil-processing.json",
+        "examples/base/advanced-oil-processing.json",
         serde_json::to_string_pretty(&NamedModule {
             name: "advanced-oil-processing".to_owned(),
-            module: Module::AdvancedOilProcessing {},
+            module: Module::OilProcessing {
+                process: OilProcessing::AdvancedOilProcessing,
+            },
         })?,
     )?;
     fs::write(

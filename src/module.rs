@@ -115,7 +115,9 @@ pub enum Module {
     User {
         structures: Vec<Structure>,
     },
-    AdvancedOilProcessing {},
+    OilProcessing {
+        process: OilProcessing,
+    },
     Science {
         #[serde(default)]
         modules: HashMap<String, i32>,
@@ -128,6 +130,13 @@ pub enum Module {
         #[serde(default)]
         modules: HashMap<String, i32>,
     },
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum OilProcessing {
+    AdvancedOilProcessing,
+    CoalLiquefaction,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

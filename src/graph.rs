@@ -1,6 +1,6 @@
 use crate::{
     data::{Effect, IngredientRate, Rate, RecipeRate, RecipeRepository},
-    module::{Module, NamedModule, Structure},
+    module::{Module, NamedModule, OilProcessing, Structure},
 };
 use core::fmt;
 use nalgebra::{Matrix3, Matrix3x1};
@@ -147,12 +147,25 @@ impl<'a> Graph<'a> {
                     }
                 }
             }
-            Module::AdvancedOilProcessing {} => {
-                let process_recipes = [
-                    ("heavy-oil", "advanced-oil-processing"),
-                    ("light-oil", "heavy-oil-cracking"),
-                    ("petroleum-gas", "light-oil-cracking"),
-                ];
+            Module::OilProcessing { process } => {
+                let (process_recipes, a) = match process {
+                    OilProcessing::AdvancedOilProcessing => (
+                        [
+                            ("heavy-oil", "advanced-oil-processing"),
+                            ("light-oil", "heavy-oil-cracking"),
+                            ("petroleum-gas", "light-oil-cracking"),
+                        ],
+                        Matrix3::from_iterator(vec![5., 9., 11., -20., 15., 0., 0., -15., 10.]),
+                    ),
+                    OilProcessing::CoalLiquefaction => (
+                        [
+                            ("heavy-oil", "coal-liquefaction"),
+                            ("light-oil", "heavy-oil-cracking"),
+                            ("petroleum-gas", "light-oil-cracking"),
+                        ],
+                        Matrix3::from_iterator(vec![13., 4., 2., -20., 15., 0., 0., -15., 10.]),
+                    ),
+                };
                 let required: HashMap<_, _> = process_recipes
                     .into_iter()
                     .map(|(p, _)| {
@@ -165,7 +178,6 @@ impl<'a> Graph<'a> {
                         )
                     })
                     .collect();
-                let a = Matrix3::from_iterator(vec![5., 9., 11., -20., 15., 0., 0., -15., 10.]);
                 let advanced =
                     Matrix3x1::from_iterator(process_recipes.iter().map(|(r, _)| required[r]));
                 let solution = a.lu().solve(&advanced).unwrap();
@@ -223,7 +235,7 @@ impl<'a> Graph<'a> {
                             }
                         }
                     }
-                    last = Some((node, &recipe.results[0].name));
+                    last = Some((node, output));
                 }
             }
             Module::Science {

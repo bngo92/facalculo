@@ -1,0 +1,8 @@
+{
+  "name": "advanced-oil-processing",
+  "module": {
+    "oil-processing": {
+      "process": "coal-liquefaction"
+    }
+  }
+}
