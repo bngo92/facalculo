@@ -23,7 +23,7 @@ pub struct Graph<'a> {
     pub graph: GraphType,
     pub recipes: &'a RecipeRepository,
     pub imports: HashMap<String, Import>,
-    pub outputs: HashMap<String, (NodeIndex, Decimal)>,
+    pub outputs: HashMap<String, Vec<(NodeIndex, Decimal)>>,
     pub production: HashMap<String, Decimal>,
     pub structures: HashMap<String, i32>,
     pub energy: HashMap<String, Decimal>,
@@ -207,10 +207,11 @@ impl<'a> Graph<'a> {
                         .entry(recipe.structure(asm).to_owned())
                         .or_default() += energy;
                     if required[output] > 0. {
-                        graph.outputs.insert(
-                            output.to_owned(),
-                            (node, Decimal::from_f64(required[output]).unwrap()),
-                        );
+                        graph
+                            .outputs
+                            .entry(output.to_owned())
+                            .or_default()
+                            .push((node, Decimal::from_f64(required[output]).unwrap()));
                     }
                     for edge in get_ingredients(recipe, ratio, Decimal::ZERO) {
                         match last {
@@ -413,7 +414,9 @@ impl<'a> Graph<'a> {
         for result in &recipe.rate().results {
             if exports.contains(&result.name.as_str()) {
                 self.outputs
-                    .insert(result.name.clone(), (node, ratio * result.rate));
+                    .entry(result.name.clone())
+                    .or_default()
+                    .push((node, ratio * result.rate));
             }
         }
         if let Rate::Resource(recipe) = recipe {

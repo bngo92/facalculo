@@ -104,16 +104,18 @@ impl ModuleGraph<'_> {
                         required: import_required,
                     });
             }
-            for (import, (node, required)) in &graph.outputs {
-                imports
-                    .entry(import.clone())
-                    .or_default()
-                    .supply
-                    .push(DependencyEdge {
-                        module: graph.name.clone(),
-                        node: node.index(),
-                        required: *required,
-                    });
+            for (import, output) in &graph.outputs {
+                for (node, required) in output {
+                    imports
+                        .entry(import.clone())
+                        .or_default()
+                        .supply
+                        .push(DependencyEdge {
+                            module: graph.name.clone(),
+                            node: node.index(),
+                            required: *required,
+                        });
+                }
             }
             if let Some(production) = production {
                 for (item, rate) in &graph.production {
