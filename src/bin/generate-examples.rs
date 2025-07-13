@@ -136,7 +136,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         )?)?,
     )?;
     fs::write(
-        "examples/water.json",
+        "examples/base/water.json",
         serde_json::to_string_pretty(&facalculo::generate(
             "water",
             true,
@@ -433,6 +433,32 @@ fn main() -> Result<(), Box<dyn Error>> {
             "molten-copper-from-lava",
             true,
             &["lava", "calcite"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>(),
+            &HashSet::new(),
+            &recipe_rates,
+        )?)?,
+    )?;
+    fs::write(
+        "examples/vulcanus/steam.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "acid-neutralisation",
+            true,
+            &["calcite", "sulfuric-acid"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>(),
+            &HashSet::new(),
+            &recipe_rates,
+        )?)?,
+    )?;
+    fs::write(
+        "examples/vulcanus/water.json",
+        serde_json::to_string_pretty(&facalculo::generate(
+            "steam-condensation",
+            true,
+            &["steam"]
                 .into_iter()
                 .map(ToOwned::to_owned)
                 .collect::<Vec<_>>(),

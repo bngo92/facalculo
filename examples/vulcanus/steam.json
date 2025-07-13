@@ -1,0 +1,15 @@
+{
+  "name": "acid-neutralisation",
+  "module": {
+    "user": {
+      "structures": [
+        {
+          "recipe": {
+            "name": "acid-neutralisation",
+            "modules": {}
+          }
+        }
+      ]
+    }
+  }
+}

@@ -199,7 +199,7 @@ impl RecipeRepository {
             module::Module::OilProcessing {
                 process: OilProcessing::CoalLiquefaction,
             } => {
-                return HashSet::from(["coal", "steam"]);
+                return HashSet::from(["coal", "steam", "water"]);
             }
             module::Module::Science { .. } => {
                 return HashSet::from([
