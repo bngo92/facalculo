@@ -73,27 +73,6 @@ impl<'a> Graph<'a> {
                             let recipe = recipes.get(name).unwrap();
                             inputs
                                 .extend(recipe.rate().ingredients.iter().map(|i| i.name.as_str()));
-                            let effect = Effect {
-                                productivity: modules
-                                    .iter()
-                                    .map(|(m, c)| {
-                                        recipes.modules[m].effect.productivity * Decimal::from(*c)
-                                    })
-                                    .sum(),
-                                speed: modules
-                                    .iter()
-                                    .map(|(m, c)| {
-                                        recipes.modules[m].effect.speed * Decimal::from(*c)
-                                    })
-                                    .sum(),
-                                consumption: modules
-                                    .iter()
-                                    .map(|(m, c)| {
-                                        recipes.modules[m].effect.consumption * Decimal::from(*c)
-                                    })
-                                    .sum(),
-                                pollution: Decimal::ZERO,
-                            };
                             for result in &recipe.rate().results {
                                 let structure = recipe.rate().structure(asm).to_owned();
                                 let assembling_machine =
@@ -104,7 +83,7 @@ impl<'a> Graph<'a> {
                                         recipe.to_cow(),
                                         structure,
                                         assembling_machine.crafting_speed.unwrap_or(Decimal::ONE),
-                                        effect,
+                                        Effect::from((recipes, modules)),
                                     ),
                                 );
                             }
@@ -245,21 +224,6 @@ impl<'a> Graph<'a> {
                 research_time,
             } => {
                 let required = required["science"];
-                let effect = Effect {
-                    productivity: modules
-                        .iter()
-                        .map(|(m, c)| recipes.modules[m].effect.productivity * Decimal::from(*c))
-                        .sum(),
-                    speed: modules
-                        .iter()
-                        .map(|(m, c)| recipes.modules[m].effect.speed * Decimal::from(*c))
-                        .sum(),
-                    consumption: modules
-                        .iter()
-                        .map(|(m, c)| recipes.modules[m].effect.consumption * Decimal::from(*c))
-                        .sum(),
-                    pollution: Decimal::ZERO,
-                };
                 let science_rate = (Decimal::ONE
                     + research_speed.unwrap_or(Decimal::from_f64(2.5).unwrap()))
                     / research_time.unwrap_or(Decimal::from(60));
@@ -293,7 +257,7 @@ impl<'a> Graph<'a> {
                             Rate::Recipe(Cow::Borrowed(&science_recipe)),
                             science_recipe.structure(asm).to_owned(),
                             Decimal::ONE,
-                            effect,
+                            Effect::from((recipes, &modules)),
                         ),
                     )]),
                     "science",
@@ -305,21 +269,6 @@ impl<'a> Graph<'a> {
             }
             Module::RocketSilo { modules } => {
                 let required = required["rocket"];
-                let effect = Effect {
-                    productivity: modules
-                        .iter()
-                        .map(|(m, c)| recipes.modules[m].effect.productivity * Decimal::from(*c))
-                        .sum(),
-                    speed: modules
-                        .iter()
-                        .map(|(m, c)| recipes.modules[m].effect.speed * Decimal::from(*c))
-                        .sum(),
-                    consumption: modules
-                        .iter()
-                        .map(|(m, c)| recipes.modules[m].effect.consumption * Decimal::from(*c))
-                        .sum(),
-                    pollution: Decimal::ZERO,
-                };
                 let rocket_recipe = RecipeRate {
                     category: None,
                     key: "rocket".to_owned(),
@@ -349,7 +298,7 @@ impl<'a> Graph<'a> {
                             recipe.to_cow(),
                             recipe.rate().structure(asm).to_owned(),
                             Decimal::ONE,
-                            effect,
+                            Effect::from((recipes, &modules)),
                         ),
                     );
                 }

@@ -107,6 +107,26 @@ pub struct Effect {
     pub speed: Decimal,
 }
 
+impl From<(&RecipeRepository, &HashMap<String, i32>)> for Effect {
+    fn from((recipes, modules): (&RecipeRepository, &HashMap<String, i32>)) -> Self {
+        Effect {
+            productivity: modules
+                .iter()
+                .map(|(m, c)| recipes.modules[m].effect.productivity * Decimal::from(*c))
+                .sum(),
+            speed: modules
+                .iter()
+                .map(|(m, c)| recipes.modules[m].effect.speed * Decimal::from(*c))
+                .sum(),
+            consumption: modules
+                .iter()
+                .map(|(m, c)| recipes.modules[m].effect.consumption * Decimal::from(*c))
+                .sum(),
+            pollution: Decimal::ZERO,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct AssemblingMachine {
     pub name: String,
